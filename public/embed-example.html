@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exemple d'intégration — Chatbot IA</title>
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        background: #f8f9fb;
+        color: #1e2a5a;
+        line-height: 1.7;
+    }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    h2 { font-size: 20px; margin-top: 30px; color: #4B6BFB; }
+    p { font-size: 15px; color: #555; }
+    .code-block {
+        background: #1e2a3a;
+        color: #e0e7ff;
+        padding: 20px;
+        border-radius: 12px;
+        font-family: 'Cascadia Code', 'Fira Code', monospace;
+        font-size: 13px;
+        overflow-x: auto;
+        margin: 16px 0;
+        line-height: 1.6;
+        white-space: pre;
+    }
+    .highlight { color: #67d4a8; }
+    .comment { color: #6b7a99; }
+    .string { color: #f0c674; }
+    .tag { color: #81a1c1; }
+    .note {
+        background: #e0e7ff;
+        border-left: 4px solid #4B6BFB;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        margin: 16px 0;
+    }
+    .note strong { color: #4B6BFB; }
+    .copy-btn {
+        background: #4B6BFB;
+        color: #fff;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        margin-top: 8px;
+    }
+    .copy-btn:hover { background: #3a56d4; }
+    hr { border: none; border-top: 1px solid #e0e4ea; margin: 30px 0; }
+</style>
+</head>
+<body>
+
+<h1>📦 Guide d'intégration du Chatbot</h1>
+<p>Ajoutez le chatbot sur n'importe quel site web en copiant un simple bout de code.</p>
+
+<hr>
+
+<h2>1. Intégration simple (recommandée)</h2>
+<p>Collez ce code juste avant la balise <code>&lt;/body&gt;</code> de votre site :</p>
+
+<div class="code-block" id="embed-simple"><span class="comment">&lt;!-- Chatbot IA --&gt;</span>
+<span class="tag">&lt;script&gt;</span>
+<span class="highlight">window.CHATBOT_CONFIG</span> = {
+    <span class="string">server</span>: <span class="string">"https://VOTRE-SERVEUR.com"</span>
+};
+<span class="tag">&lt;/script&gt;</span>
+<span class="tag">&lt;script</span> <span class="string">src</span>=<span class="string">"https://VOTRE-SERVEUR.com/widget.js"</span><span class="tag">&gt;&lt;/script&gt;</span></div>
+<button class="copy-btn" onclick="copyCode('simple')">📋 Copier le code</button>
+
+<div class="note">
+    <strong>💡 Remplacez</strong> <code>https://VOTRE-SERVEUR.com</code> par l'URL réelle de votre serveur chatbot.
+</div>
+
+<hr>
+
+<h2>2. Intégration avec personnalisation</h2>
+<p>Vous pouvez personnaliser les couleurs, le nom, etc. directement dans le code d'intégration :</p>
+
+<div class="code-block" id="embed-custom"><span class="comment">&lt;!-- Chatbot IA — Personnalisé --&gt;</span>
+<span class="tag">&lt;script&gt;</span>
+<span class="highlight">window.CHATBOT_CONFIG</span> = {
+    <span class="string">server</span>: <span class="string">"https://VOTRE-SERVEUR.com"</span>,
+    <span class="string">color</span>: <span class="string">"#4B6BFB"</span>,        <span class="comment">// Couleur principale</span>
+    <span class="string">name</span>: <span class="string">"Assistant"</span>,        <span class="comment">// Nom affiché</span>
+    <span class="string">welcome</span>: <span class="string">"Bonjour !"</span>,     <span class="comment">// Message de bienvenue</span>
+    <span class="string">logo</span>: <span class="string">""</span>,                  <span class="comment">// URL du logo (optionnel)</span>
+    <span class="string">position</span>: <span class="string">"right"</span>,         <span class="comment">// "right" ou "left"</span>
+    <span class="string">placeholder</span>: <span class="string">"Posez votre question..."</span>
+};
+<span class="tag">&lt;/script&gt;</span>
+<span class="tag">&lt;script</span> <span class="string">src</span>=<span class="string">"https://VOTRE-SERVEUR.com/widget.js"</span><span class="tag">&gt;&lt;/script&gt;</span></div>
+<button class="copy-btn" onclick="copyCode('custom')">📋 Copier le code</button>
+
+<hr>
+
+<h2>3. Options de configuration</h2>
+<table style="width:100%; border-collapse:collapse; font-size:14px; margin:16px 0;">
+    <thead>
+        <tr style="background:#e0e7ff; text-align:left;">
+            <th style="padding:10px 12px; border-radius:8px 0 0 0;">Option</th>
+            <th style="padding:10px 12px;">Type</th>
+            <th style="padding:10px 12px;">Défaut</th>
+            <th style="padding:10px 12px; border-radius:0 8px 0 0;">Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>server</code></td><td>string</td><td>auto-détecté</td><td>URL du serveur chatbot</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>color</code></td><td>string</td><td>#4B6BFB</td><td>Couleur principale (hex)</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>name</code></td><td>string</td><td>Assistant</td><td>Nom du chatbot</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>logo</code></td><td>string</td><td>""</td><td>URL d'une image logo</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>welcome</code></td><td>string</td><td>Bonjour !</td><td>Message de bienvenue</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>placeholder</code></td><td>string</td><td>Posez votre question...</td><td>Placeholder du champ de saisie</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>position</code></td><td>string</td><td>right</td><td>Position du widget (right/left)</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:8px 12px;"><code>leadDelay</code></td><td>number</td><td>3</td><td>Nb messages avant formulaire lead</td></tr>
+        <tr><td style="padding:8px 12px;"><code>leadKeywords</code></td><td>array</td><td>[...]</td><td>Mots-clés déclencheurs du formulaire</td></tr>
+    </tbody>
+</table>
+
+<hr>
+
+<h2>4. Test rapide</h2>
+<p>Le widget est déjà actif sur cette page ⬇️ (chargé depuis ce serveur)</p>
+
+<script>
+function copyCode(type) {
+    var texts = {
+        simple: '<!-- Chatbot IA -->\n<script>\nwindow.CHATBOT_CONFIG = {\n    server: "https://VOTRE-SERVEUR.com"\n};\n<\/script>\n<script src="https://VOTRE-SERVEUR.com/widget.js"><\/script>',
+        custom: '<!-- Chatbot IA — Personnalisé -->\n<script>\nwindow.CHATBOT_CONFIG = {\n    server: "https://VOTRE-SERVEUR.com",\n    color: "#4B6BFB",\n    name: "Assistant",\n    welcome: "Bonjour !",\n    logo: "",\n    position: "right",\n    placeholder: "Posez votre question..."\n};\n<\/script>\n<script src="https://VOTRE-SERVEUR.com/widget.js"><\/script>'
+    };
+    navigator.clipboard.writeText(texts[type]).then(function() {
+        event.target.textContent = "✅ Copié !";
+        setTimeout(function() { event.target.textContent = "📋 Copier le code"; }, 2000);
+    });
+}
+</script>
+
+<!-- Le widget chatbot est chargé ici pour démo -->
+<script src="/widget.js"></script>
+
+</body>
+</html>

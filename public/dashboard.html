@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Chatbot IA</title>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f0f2f7;
+        color: #1e2a5a;
+        min-height: 100vh;
+    }
+
+    /* ---- Auth screen ---- */
+    .auth-screen {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+    .auth-box {
+        background: #fff;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+        width: 100%;
+        max-width: 380px;
+        text-align: center;
+    }
+    .auth-box h1 { font-size: 22px; margin-bottom: 8px; }
+    .auth-box p { color: #666; font-size: 14px; margin-bottom: 24px; }
+    .auth-box input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1.5px solid #e0e4ea;
+        border-radius: 12px;
+        font-size: 15px;
+        outline: none;
+        transition: border 0.2s;
+        margin-bottom: 16px;
+    }
+    .auth-box input:focus { border-color: #4B6BFB; }
+    .auth-box button {
+        width: 100%;
+        padding: 12px;
+        background: #4B6BFB;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .auth-box button:hover { background: #3a56d4; }
+    .auth-error {
+        color: #dc2626;
+        font-size: 13px;
+        margin-top: 10px;
+        display: none;
+    }
+
+    /* ---- Layout ---- */
+    .dashboard { display: none; }
+    .dashboard.active { display: block; }
+
+    .topbar {
+        background: #fff;
+        padding: 16px 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #e8eaf0;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    .topbar h1 { font-size: 20px; font-weight: 700; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .topbar .refresh-btn {
+        background: #f0f2f7;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.2s;
+        color: #1e2a5a;
+        font-weight: 500;
+    }
+    .topbar .refresh-btn:hover { background: #e0e4ea; }
+
+    /* Live indicator */
+    .live-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 20px;
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+        transition: all 0.3s;
+    }
+    .live-indicator.offline {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+    .live-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        animation: live-pulse 1.5s infinite;
+    }
+    .live-indicator.offline .live-dot {
+        background: #ef4444;
+        animation: none;
+    }
+    @keyframes live-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* Toast notification */
+    .toast-container {
+        position: fixed;
+        top: 80px;
+        right: 24px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .toast {
+        background: #fff;
+        border-radius: 12px;
+        padding: 12px 18px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: toast-in 0.3s ease, toast-out 0.3s ease 3.7s forwards;
+        max-width: 340px;
+        border-left: 4px solid #4B6BFB;
+    }
+    .toast.lead { border-left-color: #059669; }
+    .toast-icon {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; flex-shrink: 0;
+    }
+    .toast-icon.blue { background: #e0e7ff; color: #4B6BFB; }
+    .toast-icon.green { background: #dcfce7; color: #059669; }
+    .toast-body { flex: 1; }
+    .toast-title { font-weight: 600; font-size: 13px; }
+    .toast-desc { font-size: 11px; color: #888; margin-top: 1px; }
+    @keyframes toast-in { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
+
+    .topbar .tab-group {
+        display: flex;
+        background: #f0f2f7;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .topbar .tab-btn {
+        background: none;
+        border: none;
+        padding: 8px 20px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        color: #666;
+        transition: all 0.2s;
+    }
+    .topbar .tab-btn.active {
+        background: #4B6BFB;
+        color: #fff;
+        border-radius: 10px;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    /* ---- Stat Cards ---- */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+    .stat-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+    .stat-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #888;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+    .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .stat-sub {
+        font-size: 12px;
+        color: #999;
+        margin-top: 4px;
+    }
+    .stat-card.purple .stat-value { color: #7c3aed; }
+    .stat-card.blue   .stat-value { color: #4B6BFB; }
+    .stat-card.green  .stat-value { color: #059669; }
+    .stat-card.orange .stat-value { color: #d97706; }
+    .stat-card.red    .stat-value { color: #dc2626; }
+    .stat-card.teal   .stat-value { color: #0d9488; }
+
+    /* ---- Tables ---- */
+    .panel {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+    .panel-header {
+        padding: 18px 24px;
+        font-weight: 600;
+        font-size: 16px;
+        border-bottom: 1px solid #f0f2f7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .panel-header .badge {
+        background: #e9ecff;
+        color: #4B6BFB;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    th {
+        text-align: left;
+        padding: 12px 18px;
+        background: #fafbff;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #888;
+        border-bottom: 1px solid #f0f2f7;
+        white-space: nowrap;
+    }
+    td {
+        padding: 12px 18px;
+        border-bottom: 1px solid #f5f6fa;
+        vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+
+    /* ---- Event badges ---- */
+    .evt-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .evt-open            { background: #dbeafe; color: #1d4ed8; }
+    .evt-close           { background: #fef3c7; color: #92400e; }
+    .evt-user_message    { background: #e0e7ff; color: #4338ca; }
+    .evt-bot_reply       { background: #d1fae5; color: #065f46; }
+    .evt-lead_form_shown { background: #fce7f3; color: #9d174d; }
+    .evt-lead_captured   { background: #dcfce7; color: #166534; }
+    .evt-lead_skipped    { background: #fee2e2; color: #991b1b; }
+    .evt-widget_loaded   { background: #f3f4f6; color: #6b7280; }
+
+    /* ---- Lead status ---- */
+    .lead-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #e9ecff;
+        color: #4B6BFB;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+    .lead-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .lead-name { font-weight: 600; }
+    .lead-email { font-size: 12px; color: #888; }
+
+    /* ---- Empty state ---- */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: #aaa;
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ---- Loading spinner ---- */
+    .spinner {
+        display: inline-block;
+        width: 20px; height: 20px;
+        border: 2.5px solid #e0e4ea;
+        border-top-color: #4B6BFB;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-overlay {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 60px;
+        color: #888;
+        font-size: 14px;
+    }
+
+    /* Tab content */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ---- Timeline ---- */
+    .timeline { padding: 20px 24px; }
+    .timeline-item {
+        display: flex;
+        gap: 14px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f5f6fa;
+        align-items: flex-start;
+    }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-time {
+        font-size: 12px;
+        color: #999;
+        white-space: nowrap;
+        min-width: 58px;
+        padding-top: 2px;
+    }
+    .timeline-content { flex: 1; }
+    .timeline-page {
+        font-size: 11px;
+        color: #bbb;
+        margin-top: 2px;
+        word-break: break-all;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 640px) {
+        .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+        .container { padding: 16px; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .stat-card { padding: 16px; }
+        .stat-value { font-size: 24px; }
+        .conv-modal-box { width: calc(100vw - 16px); height: calc(100dvh - 40px); margin: 20px 8px; }
+    }
+
+    /* ---- Conversation Modal ---- */
+    .conv-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    .conv-overlay.open { display: flex; }
+
+    .conv-modal-box {
+        background: #fff;
+        border-radius: 20px;
+        width: min(520px, calc(100vw - 40px));
+        max-height: calc(100dvh - 80px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        animation: modal-in 0.25s ease;
+    }
+    @keyframes modal-in {
+        from { opacity: 0; transform: translateY(12px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .conv-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid #f0f2f7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .conv-header-info h3 {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0 0 2px;
+    }
+    .conv-header-info span {
+        font-size: 12px;
+        color: #888;
+    }
+    .conv-close {
+        background: #f0f2f7;
+        border: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+        transition: background 0.15s;
+    }
+    .conv-close:hover { background: #e0e4ea; }
+
+    .conv-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: #fafbff;
+    }
+    .conv-msg {
+        padding: 10px 16px;
+        border-radius: 16px;
+        max-width: 85%;
+        font-size: 14px;
+        line-height: 1.5;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    .conv-msg.user {
+        background: #4B6BFB;
+        color: #fff;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    .conv-msg.bot {
+        background: #e1e5ff;
+        color: #1e2a5a;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+    .conv-msg-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 3px;
+    }
+    .conv-msg.user .conv-msg-label { color: rgba(255,255,255,0.7); }
+    .conv-msg.bot .conv-msg-label { color: #8891b5; }
+
+    .conv-empty {
+        padding: 40px;
+        text-align: center;
+        color: #aaa;
+        font-size: 14px;
+    }
+
+    /* Make lead rows clickable */
+    #leads-tbody tr {
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    #leads-tbody tr:hover td {
+        background: #f0f2ff;
+    }
+</style>
+</head>
+<body>
+
+<!-- ===== AUTH ===== -->
+<div class="auth-screen" id="auth-screen">
+    <div class="auth-box">
+        <h1>Dashboard</h1>
+        <p>Entrez la clé admin pour accéder au tableau de bord.</p>
+        <input type="password" id="auth-key" placeholder="Clé admin..." autofocus>
+        <button id="auth-btn">Accéder</button>
+        <div class="auth-error" id="auth-error">Clé invalide. Réessayez.</div>
+    </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div class="dashboard" id="dashboard">
+
+    <div class="topbar">
+        <h1>Dashboard Chatbot</h1>
+        <div class="topbar-right">
+            <div class="live-indicator offline" id="live-indicator">
+                <span class="live-dot"></span>
+                <span id="live-text">Hors ligne</span>
+            </div>
+            <div class="tab-group">
+                <button class="tab-btn active" data-tab="analytics">Analytics</button>
+                <button class="tab-btn" data-tab="leads">Leads</button>
+                <button class="tab-btn" data-tab="events">Evenements</button>
+            </div>
+            <button class="refresh-btn" id="refresh-btn">Actualiser</button>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="container">
+        <!-- ===== Analytics Tab ===== -->
+        <div class="tab-content active" id="tab-analytics">
+            <div class="stats-grid" id="stats-grid">
+                <!-- filled by JS -->
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Résumé des conversions</span>
+                </div>
+                <div id="funnel-chart" style="padding:24px;"></div>
+            </div>
+        </div>
+
+        <!-- ===== Leads Tab ===== -->
+        <div class="tab-content" id="tab-leads">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Leads capturés</span>
+                    <span class="badge" id="leads-count">0</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Contact</th>
+                                <th>Téléphone</th>
+                                <th>Source</th>
+                                <th>Messages</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leads-tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" id="leads-empty" style="display:none;">
+                    <div class="icon">—</div>
+                    <p>Aucun lead pour le moment.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== Events Tab ===== -->
+        <div class="tab-content" id="tab-events">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Événements récents</span>
+                    <span class="badge" id="events-count">0</span>
+                </div>
+                <div class="timeline" id="events-timeline"></div>
+                <div class="empty-state" id="events-empty" style="display:none;">
+                    <div class="icon">—</div>
+                    <p>Aucun événement enregistré.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading-overlay" id="loading">
+            <div class="spinner"></div>
+            Chargement des données...
+        </div>
+    </div>
+</div>
+
+<!-- ===== CONVERSATION MODAL ===== -->
+<div class="conv-overlay" id="conv-overlay">
+    <div class="conv-modal-box">
+        <div class="conv-header">
+            <div class="conv-header-info">
+                <h3 id="conv-title">Conversation</h3>
+                <span id="conv-subtitle"></span>
+            </div>
+            <button class="conv-close" id="conv-close">&times;</button>
+        </div>
+        <div class="conv-messages" id="conv-messages"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var adminKey = "";
+    var $ = function (id) { return document.getElementById(id); };
+
+    // ---- State ----
+    var currentStats = { opens: 0, conversations: 0, leads: 0, abandonments: 0, conversionRate: "0%", abandonRate: "0%" };
+    var currentEvents = [];
+    var leadsData = [];
+    var evtSource = null;
+    var reconnectTimer = null;
+    var sessionsSeen = {};
+
+    // ---- Auth ----
+    function tryAuth() {
+        var key = $("auth-key").value.trim();
+        if (!key) return;
+        adminKey = key;
+        loadAll().then(function (ok) {
+            if (ok) {
+                $("auth-screen").style.display = "none";
+                $("dashboard").classList.add("active");
+                connectSSE();
+            } else {
+                $("auth-error").style.display = "block";
+            }
+        });
+    }
+    $("auth-btn").addEventListener("click", tryAuth);
+    $("auth-key").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") tryAuth();
+    });
+
+    // ---- Tabs ----
+    document.querySelectorAll(".tab-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
+            document.querySelectorAll(".tab-content").forEach(function (t) { t.classList.remove("active"); });
+            btn.classList.add("active");
+            $("tab-" + btn.dataset.tab).classList.add("active");
+        });
+    });
+
+    // ---- Refresh ----
+    $("refresh-btn").addEventListener("click", function () {
+        loadAll();
+    });
+
+    // ---- Toast Notifications ----
+    function showToast(title, desc, type) {
+        var container = $("toast-container");
+        var toast = document.createElement("div");
+        toast.className = "toast" + (type === "lead" ? " lead" : "");
+        var iconCls = type === "lead" ? "green" : "blue";
+        var iconChar = type === "lead" ? "+" : "i";
+        toast.innerHTML = '<div class="toast-icon ' + iconCls + '">' + iconChar + '</div>'
+            + '<div class="toast-body"><div class="toast-title">' + escHtml(title) + '</div>'
+            + '<div class="toast-desc">' + escHtml(desc) + '</div></div>';
+        container.appendChild(toast);
+        setTimeout(function () { if (toast.parentNode) toast.remove(); }, 4000);
+    }
+
+    // ---- SSE (Server-Sent Events) ----
+    function connectSSE() {
+        if (evtSource) { evtSource.close(); }
+        var url = "/api/stream?key=" + encodeURIComponent(adminKey);
+        evtSource = new EventSource(url);
+
+        evtSource.onopen = function () {
+            setLiveStatus(true);
+            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        };
+
+        evtSource.onmessage = function (e) {
+            try {
+                var msg = JSON.parse(e.data);
+                handleSSE(msg);
+            } catch (err) { console.warn("SSE parse error", err); }
+        };
+
+        evtSource.onerror = function () {
+            setLiveStatus(false);
+            evtSource.close();
+            // Reconnexion automatique
+            reconnectTimer = setTimeout(function () { connectSSE(); }, 3000);
+        };
+    }
+
+    function setLiveStatus(online) {
+        var el = $("live-indicator");
+        var txt = $("live-text");
+        if (online) {
+            el.classList.remove("offline");
+            txt.textContent = "Temps reel";
+        } else {
+            el.classList.add("offline");
+            txt.textContent = "Reconnexion...";
+        }
+    }
+
+    function handleSSE(msg) {
+        if (msg.type === "connected") return;
+
+        if (msg.type === "analytics") {
+            var ev = msg.payload;
+            // Ajouter au timeline local
+            currentEvents.push(ev);
+            if (currentEvents.length > 200) currentEvents = currentEvents.slice(-200);
+
+            // Mettre a jour les stats incrementalement
+            switch (ev.event) {
+                case "open":
+                    currentStats.opens++;
+                    showToast("Nouvelle ouverture", "Un visiteur a ouvert le chat", "event");
+                    break;
+                case "user_message":
+                    if (!sessionsSeen[ev.sessionId]) {
+                        sessionsSeen[ev.sessionId] = true;
+                        currentStats.conversations++;
+                    }
+                    break;
+                case "bot_reply":
+                    break;
+                case "lead_form_shown":
+                    showToast("Formulaire affiche", "Raison: " + (ev.data && ev.data.reason || "auto"), "event");
+                    break;
+                case "lead_captured":
+                    currentStats.leads++;
+                    showToast("Nouveau lead !", ev.data && ev.data.email || "", "lead");
+                    break;
+                case "lead_skipped":
+                    showToast("Lead ignore", "Un visiteur a refuse le formulaire", "event");
+                    break;
+                case "close":
+                    if (ev.data && ev.data.messages > 2) {
+                        // Verifier si pas de lead pour cette session
+                        var hadLead = currentEvents.some(function (e) {
+                            return e.sessionId === ev.sessionId && e.event === "lead_captured";
+                        });
+                        if (!hadLead) currentStats.abandonments++;
+                    }
+                    break;
+            }
+
+            // Recalculer les taux
+            if (currentStats.conversations > 0) {
+                currentStats.conversionRate = (currentStats.leads / currentStats.conversations * 100).toFixed(1) + "%";
+                currentStats.abandonRate = (currentStats.abandonments / currentStats.conversations * 100).toFixed(1) + "%";
+            }
+
+            // Re-render stats + events
+            renderStats(currentStats);
+            renderFunnel(currentStats);
+            renderEvents(currentEvents);
+        }
+
+        if (msg.type === "new_lead") {
+            var lead = msg.payload;
+            leadsData.push(lead);
+            renderLeads(leadsData, leadsData.length);
+            showToast("Lead enregistre", (lead.firstName || "") + " " + (lead.lastName || "") + " - " + (lead.email || ""), "lead");
+        }
+    }
+
+    // ---- Helpers ----
+    function fmtDate(iso) {
+        if (!iso) return "\u2014";
+        var d = new Date(iso);
+        return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
+            + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function fmtTime(iso) {
+        if (!iso) return "";
+        var d = new Date(iso);
+        return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function shortUrl(url) {
+        if (!url) return "\u2014";
+        try { return new URL(url).pathname || url; } catch (e) { return url; }
+    }
+
+    function initials(name) {
+        if (!name) return "?";
+        return name.split(/\s+/).map(function (w) { return w[0]; }).join("").toUpperCase().slice(0, 2);
+    }
+
+    function evtLabel(evt) {
+        var labels = {
+            "open": "Ouverture",
+            "close": "Fermeture",
+            "user_message": "Message user",
+            "bot_reply": "Reponse bot",
+            "lead_form_shown": "Formulaire affiche",
+            "lead_captured": "Lead capture",
+            "lead_skipped": "Lead ignore",
+            "widget_loaded": "Widget charge"
+        };
+        return labels[evt] || evt;
+    }
+
+    // ---- Data loading (initial) ----
+    async function loadAll(silent) {
+        if (!silent) $("loading").style.display = "flex";
+        try {
+            var [analyticsRes, leadsRes] = await Promise.all([
+                fetch("/api/analytics?key=" + encodeURIComponent(adminKey)),
+                fetch("/api/leads?key=" + encodeURIComponent(adminKey))
+            ]);
+
+            if (!analyticsRes.ok || !leadsRes.ok) {
+                if (!silent) $("loading").style.display = "none";
+                return false;
+            }
+
+            var analytics = await analyticsRes.json();
+            var leads = await leadsRes.json();
+
+            // Stocker les donnees pour les mises a jour incrementales
+            currentStats = analytics.stats || currentStats;
+            currentEvents = analytics.recentEvents || [];
+            leadsData = leads.leads || [];
+
+            // Reconstruire l'index des sessions
+            sessionsSeen = {};
+            currentEvents.forEach(function (ev) {
+                if (ev.event === "user_message") sessionsSeen[ev.sessionId] = true;
+            });
+
+            renderStats(currentStats);
+            renderFunnel(currentStats);
+            renderEvents(currentEvents);
+            renderLeads(leadsData, leads.total);
+
+            $("loading").style.display = "none";
+            return true;
+        } catch (e) {
+            console.error("Dashboard load error:", e);
+            $("loading").style.display = "none";
+            return false;
+        }
+    }
+
+    // ---- Render Stats Cards ----
+    function renderStats(stats) {
+        var cards = [
+            { label: "Ouvertures", value: stats.opens || 0, cls: "blue", sub: "Nombre de fois que le chat a ete ouvert" },
+            { label: "Conversations", value: stats.conversations || 0, cls: "purple", sub: "Conversations uniques demarrees" },
+            { label: "Leads captures", value: stats.leads || 0, cls: "green", sub: "Formulaires de contact remplis" },
+            { label: "Taux de conversion", value: stats.conversionRate || "0%", cls: "teal", sub: "Leads / Conversations" },
+            { label: "Abandons", value: stats.abandonments || 0, cls: "orange", sub: "Fermetures sans lead (>2 msg)" },
+            { label: "Taux d'abandon", value: stats.abandonRate || "0%", cls: "red", sub: "Abandons / Conversations" }
+        ];
+
+        var html = "";
+        cards.forEach(function (c) {
+            html += '<div class="stat-card ' + c.cls + '">'
+                + '<div class="stat-label">' + c.label + '</div>'
+                + '<div class="stat-value">' + c.value + '</div>'
+                + '<div class="stat-sub">' + c.sub + '</div>'
+                + '</div>';
+        });
+        $("stats-grid").innerHTML = html;
+    }
+
+    // ---- Render Funnel ----
+    function renderFunnel(stats) {
+        var opens = stats.opens || 0;
+        var convs = stats.conversations || 0;
+        var leads = stats.leads || 0;
+
+        var steps = [
+            { label: "Ouvertures", value: opens, color: "#4B6BFB" },
+            { label: "Conversations", value: convs, color: "#7c3aed" },
+            { label: "Leads", value: leads, color: "#059669" }
+        ];
+
+        var max = Math.max(opens, 1);
+        var html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+        steps.forEach(function (s) {
+            var pct = Math.max((s.value / max) * 100, 4);
+            html += '<div>'
+                + '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+                + '<span style="font-size:13px;font-weight:600;color:#555;">' + s.label + '</span>'
+                + '<span style="font-size:13px;font-weight:700;color:' + s.color + ';">' + s.value + '</span>'
+                + '</div>'
+                + '<div style="background:#f0f2f7;border-radius:8px;height:28px;overflow:hidden;">'
+                + '<div style="background:' + s.color + ';height:100%;width:' + pct + '%;border-radius:8px;transition:width 0.5s ease;min-width:28px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">'
+                + '<span style="color:#fff;font-size:11px;font-weight:600;">' + (opens > 0 ? Math.round(s.value / opens * 100) + '%' : '\u2014') + '</span>'
+                + '</div></div></div>';
+        });
+        html += '</div>';
+        $("funnel-chart").innerHTML = html;
+    }
+
+    // ---- Render Events Timeline ----
+    function renderEvents(events) {
+        $("events-count").textContent = events.length;
+        if (events.length === 0) {
+            $("events-timeline").style.display = "none";
+            $("events-empty").style.display = "block";
+            return;
+        }
+        $("events-timeline").style.display = "block";
+        $("events-empty").style.display = "none";
+
+        // Show newest first
+        var reversed = events.slice().reverse();
+        var html = "";
+        reversed.forEach(function (ev) {
+            var evtClass = "evt-" + (ev.event || "").replace(/[^a-z_]/g, "");
+            var extra = "";
+            if (ev.event === "lead_captured" && ev.data && ev.data.email) {
+                extra = ' \u2014 <strong>' + escHtml(ev.data.email) + '</strong>';
+            }
+            if (ev.event === "close" && ev.data && ev.data.messages) {
+                extra = ' \u2014 ' + ev.data.messages + ' messages';
+            }
+            if (ev.event === "bot_reply" && ev.data && ev.data.count) {
+                extra = ' \u2014 reponse #' + ev.data.count;
+            }
+            if (ev.event === "lead_form_shown" && ev.data && ev.data.reason) {
+                extra = ' \u2014 raison: ' + ev.data.reason;
+            }
+
+            html += '<div class="timeline-item">'
+                + '<div class="timeline-time">' + fmtTime(ev.timestamp) + '</div>'
+                + '<div class="timeline-content">'
+                + '<span class="evt-badge ' + evtClass + '">' + evtLabel(ev.event) + '</span>'
+                + extra
+                + '<div class="timeline-page">' + escHtml(shortUrl(ev.page)) + '</div>'
+                + '</div></div>';
+        });
+        $("events-timeline").innerHTML = html;
+    }
+
+    // ---- Render Leads Table ----
+    function renderLeads(leads, total) {
+        leadsData = leads;
+        $("leads-count").textContent = total || leads.length;
+        if (leads.length === 0) {
+            $("leads-tbody").innerHTML = "";
+            $("leads-empty").style.display = "block";
+            return;
+        }
+        $("leads-empty").style.display = "none";
+
+        var sorted = leads.slice().sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
+        var html = "";
+        sorted.forEach(function (lead, idx) {
+            var displayName = lead.firstName
+                ? escHtml(lead.firstName) + " " + escHtml(lead.lastName || "")
+                : escHtml(lead.name || "Anonyme");
+            var hasConv = lead.conversation && lead.conversation.length > 0;
+            var convBadgeStyle = hasConv
+                ? "background:#e9ecff;color:#4B6BFB;"
+                : "background:#f3f4f6;color:#aaa;";
+            html += '<tr data-lead-idx="' + idx + '"' + (!hasConv ? ' title="Pas de conversation enregistree"' : '') + '>'
+                + '<td><div class="lead-name-cell">'
+                + '<div class="lead-avatar">' + initials(lead.firstName || lead.name) + '</div>'
+                + '<div><div class="lead-name">' + displayName + '</div>'
+                + '<div class="lead-email">' + escHtml(lead.email || "\u2014") + '</div></div>'
+                + '</div></td>'
+                + '<td>' + escHtml(lead.phone || "\u2014") + '</td>'
+                + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#888;">'
+                + escHtml(shortUrl(lead.source)) + '</td>'
+                + '<td><span style="' + convBadgeStyle + 'padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">'
+                + (lead.conversationLength || 0) + '</span></td>'
+                + '<td style="white-space:nowrap;font-size:13px;">' + fmtDate(lead.timestamp) + '</td>'
+                + '</tr>';
+        });
+        $("leads-tbody").innerHTML = html;
+
+        var sortedRef = sorted;
+        $("leads-tbody").querySelectorAll("tr").forEach(function (row) {
+            row.addEventListener("click", function () {
+                var idx = parseInt(row.getAttribute("data-lead-idx"), 10);
+                if (!isNaN(idx) && sortedRef[idx]) openConversation(sortedRef[idx]);
+            });
+        });
+    }
+
+    function escHtml(s) {
+        var d = document.createElement("div");
+        d.textContent = s || "";
+        return d.innerHTML;
+    }
+
+    // ---- Conversation Modal ----
+    function openConversation(lead) {
+        var displayName = lead.firstName
+            ? lead.firstName + " " + (lead.lastName || "")
+            : (lead.name || "Anonyme");
+        $("conv-title").textContent = displayName;
+        $("conv-subtitle").textContent = (lead.email || "") + (lead.phone ? " \u2014 " + lead.phone : "");
+
+        var msgs = lead.conversation || [];
+        var container = $("conv-messages");
+
+        if (msgs.length === 0) {
+            container.innerHTML = '<div class="conv-empty">Aucun message enregistre pour ce lead.<br><span style="font-size:12px;color:#bbb;margin-top:6px;display:block;">Les conversations ne sont sauvegardees que pour les nouveaux leads.</span></div>';
+        } else {
+            var html = "";
+            msgs.forEach(function (m) {
+                var cls = m.role === "user" ? "user" : "bot";
+                var label = m.role === "user" ? "Visiteur" : "Assistant";
+                html += '<div class="conv-msg ' + cls + '">'
+                    + '<div class="conv-msg-label">' + label + '</div>'
+                    + escHtml(m.text)
+                    + '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        $("conv-overlay").classList.add("open");
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function closeConversation() {
+        $("conv-overlay").classList.remove("open");
+    }
+
+    $("conv-close").addEventListener("click", closeConversation);
+    $("conv-overlay").addEventListener("click", function (e) {
+        if (e.target === $("conv-overlay")) closeConversation();
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && $("conv-overlay").classList.contains("open")) closeConversation();
+    });
+
+})();
+</script>
+</body>
+</html>

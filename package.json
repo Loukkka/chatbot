@@ -1,0 +1,14 @@
+{
+  "name": "chatbot-ia",
+  "version": "2.0.0",
+  "description": "Chatbot IA configurable — Génération de leads pour clients",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node setup-client.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.4.5"
+  }
+}

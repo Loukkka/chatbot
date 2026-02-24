@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assistant IA</title>
+
+<style>
+/* ============================================================
+   BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ============================================================
+   FLOATING BUTTON
+   ============================================================ */
+#chat-widget-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    background: #4B6BFB;
+    color: #fff;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(75,107,251,0.35);
+    z-index: 9999;
+    transition: transform 0.2s, opacity 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#chat-widget-btn:hover { transform: scale(1.08); }
+#chat-widget-btn:focus-visible {
+    outline: 3px solid #4B6BFB;
+    outline-offset: 3px;
+}
+#chat-widget-btn.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+}
+
+/* ============================================================
+   CHAT CONTAINER — responsive
+   ============================================================ */
+#chat-container {
+    width: min(370px, calc(100vw - 24px));
+    height: min(510px, calc(100dvh - 100px));
+    position: fixed;
+    bottom: 92px;
+    right: 20px;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 9998;
+    animation: slideUp 0.3s ease;
+}
+#chat-container.open { display: flex; }
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 420px) {
+    #chat-container {
+        width: calc(100vw - 12px);
+        height: calc(100dvh - 90px);
+        right: 6px;
+        bottom: 80px;
+        border-radius: 14px;
+    }
+    #chat-widget-btn {
+        bottom: 14px;
+        right: 14px;
+        width: 56px;
+        height: 56px;
+        font-size: 22px;
+    }
+}
+@media (max-width: 360px) {
+    #chat-container { width: calc(100vw - 8px); right: 4px; left: 4px; }
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+#chat-header {
+    background: #4B6BFB;
+    color: #fff;
+    padding: 16px 18px;
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#chat-header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+#chat-header .close-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+#chat-header .close-btn:hover { background: rgba(255,255,255,0.3); }
+#chat-header .close-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   NETWORK BANNER
+   ============================================================ */
+#net-banner {
+    background: #fee2e2;
+    color: #991b1b;
+    text-align: center;
+    font-size: 12px;
+    padding: 6px;
+    font-weight: 500;
+    display: none;
+}
+#net-banner.show { display: block; }
+
+/* ============================================================
+   MESSAGES
+   ============================================================ */
+#chat-messages {
+    flex: 1;
+    padding: 14px;
+    overflow-y: auto;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #fafbff;
+    scroll-behavior: smooth;
+}
+
+.message {
+    padding: 10px 14px;
+    border-radius: 16px;
+    max-width: 84%;
+    line-height: 1.5;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.bot {
+    background: #e1e5ff;
+    color: #1e2a5a;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+}
+
+.user {
+    background: #4B6BFB;
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+}
+
+.system {
+    background: #fff3cd;
+    color: #664d03;
+    align-self: center;
+    text-align: center;
+    font-size: 13px;
+    border-radius: 10px;
+    max-width: 95%;
+}
+
+/* Typing indicator — animated dots */
+.typing-dots {
+    background: #e1e5ff;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    padding: 12px 18px;
+    display: flex;
+    gap: 5px;
+}
+.typing-dots span {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #7b8cc5;
+    animation: dot-bounce 0.6s infinite alternate;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-bounce {
+    0%   { opacity: 0.3; transform: translateY(0); }
+    100% { opacity: 1;   transform: translateY(-4px); }
+}
+
+/* ============================================================
+   INPUT BAR
+   ============================================================ */
+#chat-input {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: #fff;
+    border-top: 1px solid #eee;
+    gap: 8px;
+}
+
+#chat-input input {
+    flex: 1;
+    padding: 11px 16px;
+    border: 1.5px solid #e0e4ea;
+    border-radius: 24px;
+    outline: none;
+    font-size: 14px;
+    font-family: inherit;
+    background: #f7f8fb;
+    transition: border 0.2s, background 0.2s;
+}
+#chat-input input:focus {
+    border-color: #4B6BFB;
+    background: #fff;
+}
+
+#chat-input button {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: #4B6BFB;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.15s;
+    flex-shrink: 0;
+}
+#chat-input button:hover {
+    background: #3a56d4;
+    transform: scale(1.06);
+}
+#chat-input button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+#chat-input button:focus-visible {
+    outline: 3px solid #4B6BFB;
+    outline-offset: 2px;
+}
+
+/* Screen-reader only */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Skip link for keyboard users -->
+<a href="#userInput" class="sr-only">Aller au champ de saisie du chat</a>
+
+<!-- Bouton flottant pour ouvrir le chat -->
+<button id="chat-widget-btn" aria-label="Ouvrir l'assistant" title="Ouvrir l'assistant">💬</button>
+
+<!-- Fenêtre du chatbot -->
+<div id="chat-container" role="dialog" aria-label="Chat avec l'assistant" aria-hidden="true">
+    <div id="chat-header">
+        <span><span class="dot" aria-hidden="true"></span>🤖 Assistant</span>
+        <button class="close-btn" id="closeBtn" aria-label="Fermer le chat">✕</button>
+    </div>
+    <div id="net-banner" role="alert" aria-live="assertive">Connexion perdue… Vérifiez votre réseau.</div>
+    <div id="chat-messages" role="log" aria-live="polite" aria-label="Messages du chat"></div>
+    <div id="chat-input" role="form" aria-label="Envoyer un message">
+        <input type="text" id="userInput" placeholder="Posez votre question..." autocomplete="off"
+               aria-label="Votre message" maxlength="500">
+        <button id="sendBtn" aria-label="Envoyer le message">➤</button>
+    </div>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    // ============================================================
+    // MODULE: Helpers
+    // ============================================================
+    var $ = function (id) { return document.getElementById(id); };
+
+    function sanitize(str, maxLen) {
+        if (typeof str !== "string") return "";
+        return str.replace(/[<>]/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").trim().slice(0, maxLen || 500);
+    }
+
+    // ============================================================
+    // MODULE: Config
+    // ============================================================
+    var MAX_DISPLAYED = 80;
+    var MAX_HISTORY   = 20;
+    var SPAM_COOLDOWN = 1500;
+
+    // ============================================================
+    // MODULE: DOM Refs
+    // ============================================================
+    var messagesEl = $("chat-messages");
+    var sendBtn    = $("sendBtn");
+    var userInput  = $("userInput");
+    var chatBox    = $("chat-container");
+    var widgetBtn  = $("chat-widget-btn");
+    var netBanner  = $("net-banner");
+    var closeBtn   = $("closeBtn");
+
+    // ============================================================
+    // MODULE: State
+    // ============================================================
+    var conversationHistory = [];
+    var displayedCount = 0;
+    var chatOpen   = false;
+    var isSending  = false;
+    var lastSendTs = 0;
+
+    // ============================================================
+    // MODULE: Anti-Spam
+    // ============================================================
+    function isSpam() {
+        var now = Date.now();
+        if (now - lastSendTs < SPAM_COOLDOWN) return true;
+        lastSendTs = now;
+        return false;
+    }
+
+    // ============================================================
+    // MODULE: Network Detection
+    // ============================================================
+    function updateNetwork() {
+        var offline = !navigator.onLine;
+        netBanner.classList.toggle("show", offline);
+        if (offline) { sendBtn.disabled = true; userInput.disabled = true; }
+        else if (!isSending) { sendBtn.disabled = false; userInput.disabled = false; }
+    }
+    window.addEventListener("online", updateNetwork);
+    window.addEventListener("offline", updateNetwork);
+
+    // ============================================================
+    // MODULE: Toggle
+    // ============================================================
+    function toggleChat() {
+        chatOpen = !chatOpen;
+        chatBox.classList.toggle("open", chatOpen);
+        chatBox.setAttribute("aria-hidden", chatOpen ? "false" : "true");
+        widgetBtn.classList.toggle("hidden", chatOpen);
+        if (chatOpen) userInput.focus();
+    }
+
+    widgetBtn.addEventListener("click", toggleChat);
+    closeBtn.addEventListener("click", toggleChat);
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && chatOpen) toggleChat();
+    });
+
+    // ============================================================
+    // MODULE: Messages (with DOM pruning)
+    // ============================================================
+    function scrollDown() {
+        requestAnimationFrame(function () {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        });
+    }
+
+    function addMessage(text, type) {
+        var msg = document.createElement("div");
+        msg.classList.add("message", type);
+        msg.textContent = text;
+
+        if (type === "bot")    msg.setAttribute("aria-label", "Assistant dit");
+        if (type === "user")   msg.setAttribute("aria-label", "Vous dites");
+        if (type === "system") msg.setAttribute("role", "status");
+
+        messagesEl.appendChild(msg);
+        displayedCount++;
+
+        while (displayedCount > MAX_DISPLAYED && messagesEl.firstChild) {
+            messagesEl.removeChild(messagesEl.firstChild);
+            displayedCount--;
+        }
+
+        scrollDown();
+        return msg;
+    }
+
+    // ============================================================
+    // MODULE: Typing Indicator (animated dots)
+    // ============================================================
+    function showTyping() {
+        var el = document.createElement("div");
+        el.classList.add("typing-dots");
+        el.id = "typing-indicator";
+        el.setAttribute("aria-label", "L'assistant réfléchit");
+        el.innerHTML = "<span></span><span></span><span></span>";
+        messagesEl.appendChild(el);
+        scrollDown();
+    }
+
+    function removeTyping() {
+        var el = $("typing-indicator");
+        if (el) el.remove();
+    }
+
+    // ============================================================
+    // MODULE: AI API (backend proxy)
+    // ============================================================
+    async function askAI(userText) {
+        var cleanText = sanitize(userText, 500);
+        conversationHistory.push({ role: "user", parts: [{ text: cleanText }] });
+
+        try {
+            var ctrl = new AbortController();
+            var timeout = setTimeout(function () { ctrl.abort(); }, 15000);
+
+            var response = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: conversationHistory }),
+                signal: ctrl.signal
+            });
+
+            clearTimeout(timeout);
+            var data = await response.json().catch(function () { return {}; });
+
+            if (!response.ok) {
+                if (response.status === 429) return "⏳ Trop de messages. Patientez un instant.";
+                return "Désolé, une erreur est survenue. Veuillez réessayer.";
+            }
+
+            var reply = data.reply || "Je n'ai pas pu générer de réponse.";
+            conversationHistory.push({ role: "model", parts: [{ text: reply }] });
+
+            if (conversationHistory.length > MAX_HISTORY) {
+                conversationHistory = conversationHistory.slice(-MAX_HISTORY);
+            }
+
+            return reply;
+
+        } catch (error) {
+            if (error.name === "AbortError") return "⏳ Le serveur met trop de temps. Réessayez.";
+            return "❌ Impossible de se connecter. Vérifiez votre connexion internet.";
+        }
+    }
+
+    // ============================================================
+    // MODULE: Send
+    // ============================================================
+    async function sendMessage() {
+        var text = userInput.value.trim();
+        if (!text || isSending) return;
+
+        if (isSpam()) {
+            addMessage("Merci de patienter avant d'envoyer un autre message.", "system");
+            return;
+        }
+
+        isSending = true;
+        addMessage(text, "user");
+        userInput.value = "";
+        sendBtn.disabled = true;
+        userInput.disabled = true;
+        showTyping();
+
+        var reply = await askAI(text);
+
+        removeTyping();
+        addMessage(reply, "bot");
+
+        sendBtn.disabled = false;
+        userInput.disabled = false;
+        isSending = false;
+        userInput.focus();
+        updateNetwork();
+    }
+
+    // ============================================================
+    // MODULE: Events
+    // ============================================================
+    sendBtn.addEventListener("click", sendMessage);
+    userInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    // ============================================================
+    // MODULE: Init
+    // ============================================================
+    addMessage("Bonjour 👋 Comment puis-je vous aider ?", "bot");
+    updateNetwork();
+})();
+</script>
+
+</body>
+</html>

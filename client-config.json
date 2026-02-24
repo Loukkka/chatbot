@@ -1,0 +1,87 @@
+{
+    "companyName": "La19.agency",
+    "companyDescription": "Agence web et marketing digital",
+    "website": "https://la19.agency",
+    "email": "contact@la19.agency",
+    "phone": "+33 1 23 45 67 89",
+    "location": "Paris, France",
+    "hours": "Lundi au vendredi, 9h - 18h",
+
+    "chatbot": {
+        "name": "Assistant",
+        "welcome": "Bonjour ! Comment puis-je vous aider ?",
+        "placeholder": "Posez votre question...",
+        "color": "#4B6BFB",
+        "logo": "",
+        "position": "right",
+        "leadDelay": 3,
+        "leadTimeDelay": 60,
+        "leadKeywords": ["devis","prix","tarif","cout","budget","rdv","rendez-vous","rappeler","contact","telephone","email"]
+    },
+
+    "services": [
+        {
+            "name": "Création de site vitrine",
+            "price": "à partir de 1 500€",
+            "description": "Design sur-mesure, responsive, optimisé SEO. Livraison sous 3 à 4 semaines."
+        },
+        {
+            "name": "Création de site e-commerce",
+            "price": "à partir de 3 000€",
+            "description": "Shopify, WooCommerce ou sur-mesure. Paiement en ligne, gestion des stocks."
+        },
+        {
+            "name": "SEO / Référencement naturel",
+            "price": "à partir de 500€/mois",
+            "description": "Audit technique, optimisation on-page, netlinking. Rapports mensuels de performance."
+        },
+        {
+            "name": "Publicité en ligne (Google Ads, Meta Ads)",
+            "price": "à partir de 800€/mois (hors budget pub)",
+            "description": "Création et gestion des campagnes. Optimisation du ROI."
+        },
+        {
+            "name": "Community Management",
+            "price": "à partir de 400€/mois",
+            "description": "Gestion Instagram, Facebook, LinkedIn, TikTok. Création de contenu, calendrier éditorial."
+        },
+        {
+            "name": "Branding / Identité visuelle",
+            "price": "à partir de 1 200€",
+            "description": "Logo, charte graphique, supports print."
+        }
+    ],
+
+    "botPersonality": {
+        "language": "français",
+        "tone": "Professionnel mais chaleureux et accessible",
+        "responseLength": "Réponses concises (2-4 phrases max sauf si le client demande des détails)",
+        "callToAction": "Proposer un appel découverte gratuit de 30 min pour discuter du projet",
+        "qualifyingQuestions": [
+            "Quel est leur projet ? (site web, marketing, les deux ?)",
+            "Quel est leur budget approximatif ?",
+            "Quel est leur délai ?",
+            "Ont-ils déjà un site existant ?"
+        ],
+        "strengths": [
+            "Expertise technique",
+            "Résultats clients prouvés",
+            "Accompagnement personnalisé"
+        ],
+        "restrictions": [
+            "Ne jamais donner de prix exact sans préciser 'à partir de'",
+            "Ne jamais promettre de résultats garantis en SEO ou publicité",
+            "Ne jamais partager d'informations confidentielles",
+            "Ne jamais répondre à des questions sans rapport avec l'entreprise (rediriger poliment)"
+        ]
+    },
+
+    "rgpd": {
+        "consentText": "En envoyant ce formulaire, j'accepte d'être recontacté(e) et que mes données soient traitées conformément à la politique de confidentialité.",
+        "privacyUrl": ""
+    },
+
+    "admin": {
+        "dashboardTitle": "Dashboard — Chatbot IA"
+    }
+}
