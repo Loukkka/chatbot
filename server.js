@@ -6,39 +6,68 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.OPENROUTER_API_KEY;
+const ADMIN_KEY = process.env.ADMIN_KEY || "admin123";
 
-// ---- Chargement configuration client ----
-const CONFIG_FILE = path.join(__dirname, "client-config.json");
+// ============================================================
+// DOSSIERS DE DONNÉES
+// ============================================================
+const DATA_DIR = path.join(__dirname, "data");
+const CLIENTS_FILE = path.join(DATA_DIR, "clients.json");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-function loadClientConfig() {
+// ============================================================
+// GESTION CLIENTS
+// ============================================================
+function loadClients() {
     try {
-        if (fs.existsSync(CONFIG_FILE)) {
-            return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
-        }
-    } catch (e) {
-        console.error("Erreur lecture client-config.json:", e.message);
-    }
-    return null;
+        if (fs.existsSync(CLIENTS_FILE))
+            return JSON.parse(fs.readFileSync(CLIENTS_FILE, "utf-8"));
+    } catch (e) { console.error("Erreur clients.json:", e.message); }
+    return {};
+}
+function saveClients(clients) {
+    fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2), "utf-8");
+}
+function getClient(clientId) {
+    return loadClients()[clientId] || null;
 }
 
+// ============================================================
+// FICHIERS PAR CLIENT
+// ============================================================
+function loadLeads(clientId) {
+    try {
+        const f = path.join(DATA_DIR, `leads_${clientId}.json`);
+        if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, "utf-8"));
+    } catch (e) {}
+    return [];
+}
+function saveLeads(clientId, leads) {
+    fs.writeFileSync(path.join(DATA_DIR, `leads_${clientId}.json`), JSON.stringify(leads, null, 2), "utf-8");
+}
+function loadAnalytics(clientId) {
+    try {
+        const f = path.join(DATA_DIR, `analytics_${clientId}.json`);
+        if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, "utf-8"));
+    } catch (e) {}
+    return { events: [] };
+}
+function saveAnalytics(clientId, data) {
+    fs.writeFileSync(path.join(DATA_DIR, `analytics_${clientId}.json`), JSON.stringify(data, null, 2), "utf-8");
+}
+
+// ============================================================
+// SYSTEM PROMPT
+// ============================================================
 function buildSystemPrompt(cfg) {
     if (!cfg) return "Tu es un assistant virtuel. Réponds de manière professionnelle et utile.";
 
     const servicesText = (cfg.services || []).map((s, i) =>
         `${i + 1}. **${s.name}** — ${s.price}\n   - ${s.description}`
     ).join("\n");
-
-    const questionsText = (cfg.botPersonality?.qualifyingQuestions || []).map(q =>
-        `  • ${q}`
-    ).join("\n");
-
-    const strengthsText = (cfg.botPersonality?.strengths || []).map(s =>
-        `- ${s}`
-    ).join("\n");
-
-    const restrictionsText = (cfg.botPersonality?.restrictions || []).map(r =>
-        `- ${r}`
-    ).join("\n");
+    const questionsText = (cfg.botPersonality?.qualifyingQuestions || []).map(q => `  • ${q}`).join("\n");
+    const strengthsText = (cfg.botPersonality?.strengths || []).map(s => `- ${s}`).join("\n");
+    const restrictionsText = (cfg.botPersonality?.restrictions || []).map(r => `- ${r}`).join("\n");
 
     return `Tu es l'assistant virtuel de ${cfg.companyName}, ${cfg.companyDescription || ''}.
 
@@ -57,148 +86,145 @@ ${servicesText || 'Contactez-nous pour en savoir plus sur nos services.'}
 🎯 TON RÔLE :
 - Accueillir chaleureusement les visiteurs
 - Expliquer clairement les services et les tarifs
-- Qualifier les prospects en posant des questions pertinentes :
+- Qualifier les prospects :
 ${questionsText}
-- ${cfg.botPersonality?.callToAction || 'Proposer un rendez-vous pour discuter du projet'}
-- Collecter le nom, email et téléphone pour qu'un conseiller les rappelle
-- Mettre en avant les points forts :
+- ${cfg.botPersonality?.callToAction || 'Proposer un rendez-vous'}
+- Collecter nom, email et téléphone
+- Points forts :
 ${strengthsText}
 
 🗣️ TON STYLE :
 - Toujours répondre en ${cfg.botPersonality?.language || 'français'}
 - ${cfg.botPersonality?.tone || 'Ton professionnel mais chaleureux'}
 - ${cfg.botPersonality?.responseLength || 'Réponses concises (2-4 phrases max)'}
-- Utiliser des émojis avec parcimonie pour rester pro
-- Ne jamais inventer de faux témoignages ou de fausses statistiques
-- Si tu ne connais pas une info précise, propose de mettre en relation avec un conseiller
+- Ne jamais inventer de faux témoignages ou statistiques
 
 🚫 NE JAMAIS :
 ${restrictionsText}`;
 }
 
-const CLIENT_CONFIG = loadClientConfig();
-const SYSTEM_PROMPT = buildSystemPrompt(CLIENT_CONFIG);
-
-// ---- Helpers : Sanitisation & Validation ----
+// ============================================================
+// HELPERS
+// ============================================================
 function sanitizeText(str, maxLen = 500) {
     if (typeof str !== "string") return "";
-    return str
-        .replace(/[<>]/g, "")          // Anti-XSS basique
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "") // Caractères de contrôle
-        .trim()
-        .slice(0, maxLen);
+    return str.replace(/[<>]/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").trim().slice(0, maxLen);
 }
+function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); }
+function isValidPhone(p) { if (!p) return true; return /^[+\d][\d\s\-.()]{6,20}$/.test(p); }
+function isValidUrl(u) { if (!u) return true; try { new URL(u); return true; } catch { return false; } }
 
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
-}
-
-function isValidPhone(phone) {
-    if (!phone) return true; // optionnel
-    return /^[+\d][\d\s\-.()]{6,20}$/.test(phone);
-}
-
-function isValidUrl(url) {
-    if (!url) return true;
-    try { new URL(url); return true; } catch { return false; }
-}
-
-// ---- Rate limiting simple par IP ----
 const rateLimitMap = new Map();
-const RATE_LIMIT_WINDOW = 60000; // 1 min
-const RATE_LIMIT_MAX_CHAT = 15;  // max 15 requêtes chat / min / IP
-const RATE_LIMIT_MAX_ANALYTICS = 60; // max 60 events / min / IP
-
 function rateLimit(key, max) {
     const now = Date.now();
     if (!rateLimitMap.has(key)) rateLimitMap.set(key, []);
-    const timestamps = rateLimitMap.get(key).filter(t => now - t < RATE_LIMIT_WINDOW);
-    timestamps.push(now);
-    rateLimitMap.set(key, timestamps);
-    return timestamps.length > max;
+    const ts = rateLimitMap.get(key).filter(t => now - t < 60000);
+    ts.push(now);
+    rateLimitMap.set(key, ts);
+    return ts.length > max;
 }
-
-// Nettoyage périodique de la map
 setInterval(() => {
     const now = Date.now();
-    for (const [key, timestamps] of rateLimitMap) {
-        const filtered = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW);
-        if (filtered.length === 0) rateLimitMap.delete(key);
-        else rateLimitMap.set(key, filtered);
+    for (const [k, ts] of rateLimitMap) {
+        const f = ts.filter(t => now - t < 60000);
+        if (!f.length) rateLimitMap.delete(k); else rateLimitMap.set(k, f);
     }
 }, 120000);
 
-app.use(express.json({ limit: "50kb" })); // Limiter la taille du body
+// ============================================================
+// EXPRESS SETUP
+// ============================================================
+app.use(express.json({ limit: "50kb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---- SSE (Server-Sent Events) pour le dashboard temps réel ----
-const sseClients = new Set();
+app.use((req, res, next) => {
+    res.header("X-Content-Type-Options", "nosniff");
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    if (req.method === "OPTIONS") return res.sendStatus(200);
+    next();
+});
+app.use((req, res, next) => {
+    if (req.method === "POST" && !req.is("application/json"))
+        return res.status(415).json({ error: "Content-Type application/json requis." });
+    next();
+});
 
-function broadcastSSE(type, payload) {
-    const data = JSON.stringify({ type, payload, time: new Date().toISOString() });
-    for (const client of sseClients) {
-        try { client.write(`data: ${data}\n\n`); } catch (e) { sseClients.delete(client); }
+// ============================================================
+// SSE — temps réel par client
+// ============================================================
+const sseClients = new Map();
+
+function broadcastSSE(clientId, type, payload) {
+    const set = sseClients.get(clientId);
+    if (!set) return;
+    const data = `data: ${JSON.stringify({ type, payload, time: new Date().toISOString() })}\n\n`;
+    for (const client of set) {
+        try { client.write(data); } catch { set.delete(client); }
     }
 }
 
 app.get("/api/stream", (req, res) => {
-    const secret = req.query.key;
-    if (secret !== (process.env.ADMIN_KEY || "admin123")) {
-        return res.status(403).json({ error: "Accès refusé." });
-    }
-    res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Access-Control-Allow-Origin": "*",
-        "X-Accel-Buffering": "no"
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const clientId = req.query.clientId || "default";
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
+    res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
+    if (!sseClients.has(clientId)) sseClients.set(clientId, new Set());
+    sseClients.get(clientId).add(res);
+    req.on("close", () => sseClients.get(clientId)?.delete(res));
+});
+
+// ============================================================
+// PAGES
+// ============================================================
+app.get("/dashboard", (req, res) => res.sendFile(path.join(__dirname, "public", "dashboard.html")));
+app.get("/embed", (req, res) => res.sendFile(path.join(__dirname, "public", "embed-example.html")));
+
+// ============================================================
+// ADMIN — Gestion clients
+// ============================================================
+app.get("/api/admin/clients", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const clients = loadClients();
+    const list = Object.entries(clients).map(([id, cfg]) => ({
+        clientId: id,
+        companyName: cfg.companyName || id,
+        createdAt: cfg.createdAt || null,
+        snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "https://chatbot-jeoh.onrender.com", clientId: "${id}" };\n</script>\n<script src="https://chatbot-jeoh.onrender.com/widget.js"></script>`
+    }));
+    res.json({ total: list.length, clients: list });
+});
+
+app.post("/api/admin/clients", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const { clientId, config } = req.body;
+    if (!clientId || !config) return res.status(400).json({ error: "clientId et config requis." });
+    const cleanId = clientId.toLowerCase().replace(/[^a-z0-9-_]/g, "").slice(0, 50);
+    if (!cleanId) return res.status(400).json({ error: "clientId invalide." });
+    const clients = loadClients();
+    clients[cleanId] = { ...config, clientId: cleanId, updatedAt: new Date().toISOString(), createdAt: clients[cleanId]?.createdAt || new Date().toISOString() };
+    saveClients(clients);
+    res.json({
+        ok: true, clientId: cleanId,
+        snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "https://chatbot-jeoh.onrender.com", clientId: "${cleanId}" };\n</script>\n<script src="https://chatbot-jeoh.onrender.com/widget.js"></script>`
     });
-    res.write("data: {\"type\":\"connected\"}\n\n");
-    sseClients.add(res);
-    req.on("close", () => { sseClients.delete(res); });
 });
 
-// ---- Security Headers ----
-app.use((req, res, next) => {
-    res.header("X-Content-Type-Options", "nosniff");
-    res.header("X-Frame-Options", "SAMEORIGIN");
-    res.header("X-XSS-Protection", "1; mode=block");
-    res.header("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-    next();
+app.delete("/api/admin/clients/:clientId", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const clients = loadClients();
+    delete clients[req.params.clientId];
+    saveClients(clients);
+    res.json({ ok: true });
 });
 
-// ---- CORS : autoriser les appels depuis n'importe quel site ----
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Content-Type");
-    res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
-    if (req.method === "OPTIONS") return res.sendStatus(200);
-    next();
-});
-
-// ---- Content-Type guard for POST requests ----
-app.use((req, res, next) => {
-    if (req.method === "POST" && !req.is("application/json")) {
-        return res.status(415).json({ error: "Content-Type application/json requis." });
-    }
-    next();
-});
-
-// ---- Dashboard HTML ----
-app.get("/dashboard", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "dashboard.html"));
-});
-
-// ---- Guide d'integration ----
-app.get("/embed", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "embed-example.html"));
-});
-
-// ---- Widget config endpoint (pour auto-configuration) ----
+// ============================================================
+// WIDGET CONFIG
+// ============================================================
 app.get("/api/widget-config", (req, res) => {
-    const cfg = CLIENT_CONFIG || {};
-    const chatbot = cfg.chatbot || {};
+    const cfg = req.query.clientId ? getClient(req.query.clientId) : null;
+    const chatbot = cfg?.chatbot || {};
     res.json({
         name: chatbot.name || "Assistant",
         welcome: chatbot.welcome || "Bonjour ! Comment puis-je vous aider ?",
@@ -209,55 +235,35 @@ app.get("/api/widget-config", (req, res) => {
         leadDelay: chatbot.leadDelay || 3,
         leadTimeDelay: chatbot.leadTimeDelay || 60,
         leadKeywords: chatbot.leadKeywords || [],
-        companyName: cfg.companyName || "",
-        rgpdText: cfg.rgpd?.consentText || ""
+        companyName: cfg?.companyName || "",
+        rgpdText: cfg?.rgpd?.consentText || ""
     });
 });
 
-// ---- Endpoint API chat ----
+// ============================================================
+// CHAT
+// ============================================================
 app.post("/api/chat", async (req, res) => {
-    // Rate limit
     const ip = req.ip || req.connection.remoteAddress;
-    if (rateLimit("chat:" + ip, RATE_LIMIT_MAX_CHAT)) {
-        return res.status(429).json({ error: "Trop de requêtes. Réessayez dans un instant." });
-    }
+    if (rateLimit("chat:" + ip, 15)) return res.status(429).json({ error: "Trop de requêtes." });
+    if (!API_KEY) return res.status(500).json({ error: "Clé API non configurée." });
 
-    if (!API_KEY) {
-        return res.status(500).json({ error: "Clé API non configurée sur le serveur." });
-    }
+    const { messages, clientId } = req.body;
+    if (!messages || !Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "Messages invalides." });
+    if (messages.length > 30) return res.status(400).json({ error: "Historique trop long." });
 
-    const { messages } = req.body;
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: "Format de message invalide." });
-    }
-
-    // Limiter le nombre de messages envoyés (anti-abus)
-    if (messages.length > 30) {
-        return res.status(400).json({ error: "Historique trop long." });
-    }
-
-    // Validate each message structure
     for (const m of messages) {
-        if (!m || typeof m !== "object") {
-            return res.status(400).json({ error: "Format de message invalide." });
-        }
-        const role = m.role;
-        if (role !== "user" && role !== "model" && role !== "assistant") {
-            return res.status(400).json({ error: "Rôle de message invalide." });
-        }
+        if (!m || typeof m !== "object") return res.status(400).json({ error: "Format invalide." });
+        if (!["user", "model", "assistant"].includes(m.role)) return res.status(400).json({ error: "Rôle invalide." });
         const text = m.parts?.[0]?.text || m.content || "";
-        if (typeof text !== "string" || text.length > 5000) {
-            return res.status(400).json({ error: "Contenu de message invalide." });
-        }
+        if (typeof text !== "string" || text.length > 5000) return res.status(400).json({ error: "Contenu invalide." });
     }
 
-    // Convertir le format Gemini vers le format OpenAI/OpenRouter
+    const clientCfg = clientId ? getClient(clientId) : null;
+    const systemPrompt = buildSystemPrompt(clientCfg);
+
     const openRouterMessages = [
-        {
-            role: "system",
-            content: SYSTEM_PROMPT
-        },
+        { role: "system", content: systemPrompt },
         ...messages.map(m => ({
             role: m.role === "model" ? "assistant" : "user",
             content: sanitizeText(m.parts?.[0]?.text || m.content || "", 2000)
@@ -267,282 +273,129 @@ app.post("/api/chat", async (req, res) => {
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "google/gemini-2.0-flash-lite-001",
-                messages: openRouterMessages,
-                temperature: 0.7,
-                max_tokens: 1024
-            })
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+            body: JSON.stringify({ model: "google/gemini-2.0-flash-lite-001", messages: openRouterMessages, temperature: 0.7, max_tokens: 1024 })
         });
-
         const data = await response.json();
-
-        if (!response.ok) {
-            console.error("Erreur OpenRouter:", data);
-            return res.status(response.status).json({
-                error: data.error?.message || "Erreur API"
-            });
-        }
-
-        const reply = data.choices?.[0]?.message?.content
-            || "Je n'ai pas pu générer de réponse.";
-
-        res.json({ reply });
-
-    } catch (error) {
-        console.error("Erreur serveur:", error);
+        if (!response.ok) return res.status(response.status).json({ error: data.error?.message || "Erreur API" });
+        res.json({ reply: data.choices?.[0]?.message?.content || "Je n'ai pas pu générer de réponse." });
+    } catch (err) {
+        console.error("Erreur chat:", err);
         res.status(500).json({ error: "Erreur de connexion au service IA." });
     }
 });
 
-// ---- Endpoint capture de leads ----
-const LEADS_FILE = path.join(__dirname, "leads.json");
-
-function loadLeads() {
-    try {
-        if (fs.existsSync(LEADS_FILE)) {
-            return JSON.parse(fs.readFileSync(LEADS_FILE, "utf-8"));
-        }
-    } catch (e) { /* fichier corrompu, on repart à zéro */ }
-    return [];
-}
-
-function saveLeads(leads) {
-    fs.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
-}
-
+// ============================================================
+// LEADS
+// ============================================================
 app.post("/api/lead", (req, res) => {
-    // Rate limit
     const ip = req.ip || req.connection.remoteAddress;
-    if (rateLimit("lead:" + ip, 5)) {
-        return res.status(429).json({ error: "Trop de soumissions. Réessayez plus tard." });
-    }
+    if (rateLimit("lead:" + ip, 5)) return res.status(429).json({ error: "Trop de soumissions." });
 
-    const { name, firstName, lastName, email, phone, consent, source, conversation, timestamp } = req.body;
-
-    // Validation prénom
+    const { firstName, lastName, email, phone, consent, source, conversation, timestamp, clientId } = req.body;
     const cleanFirstName = sanitizeText(firstName, 50);
-    if (!cleanFirstName || cleanFirstName.length < 2) {
-        return res.status(400).json({ error: "Prénom requis (2 caractères min)." });
-    }
-
-    // Validation nom
+    if (!cleanFirstName || cleanFirstName.length < 2) return res.status(400).json({ error: "Prénom requis." });
     const cleanLastName = sanitizeText(lastName, 50);
-    if (!cleanLastName || cleanLastName.length < 2) {
-        return res.status(400).json({ error: "Nom requis (2 caractères min)." });
-    }
-
-    // Validation stricte email
+    if (!cleanLastName || cleanLastName.length < 2) return res.status(400).json({ error: "Nom requis." });
     const cleanEmail = sanitizeText(email, 254).toLowerCase();
-    if (!isValidEmail(cleanEmail)) {
-        return res.status(400).json({ error: "Email invalide." });
-    }
-
-    // Validation téléphone
+    if (!isValidEmail(cleanEmail)) return res.status(400).json({ error: "Email invalide." });
     const cleanPhone = sanitizeText(phone, 25);
-    if (cleanPhone && !isValidPhone(cleanPhone)) {
-        return res.status(400).json({ error: "Numéro de téléphone invalide." });
-    }
+    if (cleanPhone && !isValidPhone(cleanPhone)) return res.status(400).json({ error: "Téléphone invalide." });
+    if (!consent) return res.status(400).json({ error: "Consentement RGPD requis." });
 
-    // Vérifier consentement RGPD
-    if (!consent) {
-        return res.status(400).json({ error: "Consentement RGPD requis." });
-    }
-
-    const cleanName = sanitizeText(name, 100) || (cleanFirstName + " " + cleanLastName);
+    const id = sanitizeText(clientId, 50) || "default";
     const cleanSource = sanitizeText(source, 500);
 
     const lead = {
-        id: Date.now(),
-        firstName: cleanFirstName,
-        lastName: cleanLastName,
-        name: cleanName,
-        email: cleanEmail,
-        phone: cleanPhone,
-        consent: true,
-        consentDate: new Date().toISOString(),
+        id: Date.now(), clientId: id,
+        firstName: cleanFirstName, lastName: cleanLastName,
+        name: cleanFirstName + " " + cleanLastName,
+        email: cleanEmail, phone: cleanPhone,
+        consent: true, consentDate: new Date().toISOString(),
         source: isValidUrl(cleanSource) ? cleanSource : "",
-        ip: ip,
-        timestamp: timestamp || new Date().toISOString(),
+        ip, timestamp: timestamp || new Date().toISOString(),
         conversationLength: Array.isArray(conversation) ? Math.min(conversation.length, 30) : 0,
         conversation: Array.isArray(conversation)
             ? conversation.slice(-30).map(m => ({
                 role: m.role === "model" ? "bot" : "user",
-                text: sanitizeText((m.parts && m.parts[0] ? m.parts[0].text : m.content) || "", 2000)
+                text: sanitizeText((m.parts?.[0]?.text || m.content) || "", 2000)
             })).filter(m => m.text.length > 0)
             : []
     };
 
-    const leads = loadLeads();
+    const leads = loadLeads(id);
     leads.push(lead);
-    saveLeads(leads);
-
-    console.log(`Nouveau lead : ${lead.firstName} ${lead.lastName} — ${lead.email} — ${lead.phone || "pas de tél"}`);
-
-    // Broadcast SSE vers le dashboard
-    broadcastSSE("new_lead", {
-        id: lead.id, firstName: lead.firstName, lastName: lead.lastName,
-        name: lead.name, email: lead.email, phone: lead.phone,
-        conversationLength: lead.conversationLength, timestamp: lead.timestamp,
-        conversation: lead.conversation
-    });
-
+    saveLeads(id, leads);
+    console.log(`[${id}] Nouveau lead : ${lead.name} — ${lead.email}`);
+    broadcastSSE(id, "new_lead", lead);
     res.json({ success: true, message: "Lead enregistré." });
 });
 
-// ---- Voir les leads (protégé) ----
 app.get("/api/leads", (req, res) => {
-    const secret = req.query.key;
-    if (secret !== (process.env.ADMIN_KEY || "admin123")) {
-        return res.status(403).json({ error: "Accès refusé." });
-    }
-    const leads = loadLeads();
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const clientId = req.query.clientId || "default";
+    const leads = loadLeads(clientId);
     res.json({ total: leads.length, leads });
 });
 
-// ---- Analytics tracking ----
-const ANALYTICS_FILE = path.join(__dirname, "analytics.json");
-
-function loadAnalytics() {
-    try {
-        if (fs.existsSync(ANALYTICS_FILE)) {
-            return JSON.parse(fs.readFileSync(ANALYTICS_FILE, "utf-8"));
-        }
-    } catch (e) {}
-    return { events: [], stats: { opens: 0, conversations: 0, leads: 0, abandonments: 0 } };
-}
-
-function saveAnalytics(data) {
-    fs.writeFileSync(ANALYTICS_FILE, JSON.stringify(data, null, 2), "utf-8");
-}
-
+// ============================================================
+// ANALYTICS
+// ============================================================
 app.post("/api/analytics", (req, res) => {
-    // Rate limit analytics
     const ip = req.ip || req.connection.remoteAddress;
-    if (rateLimit("analytics:" + ip, RATE_LIMIT_MAX_ANALYTICS)) {
-        return res.status(429).json({ error: "Trop de requêtes." });
-    }
+    if (rateLimit("analytics:" + ip, 60)) return res.status(429).json({ error: "Trop de requêtes." });
 
-    const { sessionId, event, data, page, timestamp } = req.body;
+    const { sessionId, event, data, page, timestamp, clientId } = req.body;
     const cleanEvent = sanitizeText(event, 50);
     if (!cleanEvent) return res.status(400).json({ error: "Event requis." });
 
-    const analytics = loadAnalytics();
+    const id = sanitizeText(clientId, 50) || "default";
+    const analytics = loadAnalytics(id);
 
-    // Mettre à jour les compteurs
-    switch (event) {
-        case "open":
-            analytics.stats.opens++;
-            break;
-        case "user_message":
-            // Compter conversation unique par session
-            const hasSession = analytics.events.some(
-                e => e.sessionId === sessionId && e.event === "user_message"
-            );
-            if (!hasSession) analytics.stats.conversations++;
-            break;
-        case "lead_captured":
-            analytics.stats.leads++;
-            break;
-        case "close":
-            // Abandon = fermeture sans lead
-            const hadLead = analytics.events.some(
-                e => e.sessionId === sessionId && e.event === "lead_captured"
-            );
-            if (!hadLead && data?.messages > 2) analytics.stats.abandonments++;
-            break;
-    }
+    analytics.events.push({ sessionId, event: cleanEvent, data, page, timestamp: timestamp || new Date().toISOString() });
+    if (analytics.events.length > 5000) analytics.events = analytics.events.slice(-5000);
+    saveAnalytics(id, analytics);
 
-    // Garder les 5000 derniers événements max
-    analytics.events.push({ sessionId, event, data, page, timestamp });
-    if (analytics.events.length > 5000) {
-        analytics.events = analytics.events.slice(-5000);
-    }
-
-    saveAnalytics(analytics);
-
-    // Broadcast SSE vers le dashboard
-    broadcastSSE("analytics", { sessionId, event: cleanEvent, data, page, timestamp });
-
+    broadcastSSE(id, "analytics", { sessionId, event: cleanEvent, data, page, timestamp });
     res.json({ ok: true });
 });
 
-// ---- Dashboard analytics (protégé) ----
 app.get("/api/analytics", (req, res) => {
-    const secret = req.query.key;
-    if (secret !== (process.env.ADMIN_KEY || "admin123")) {
-        return res.status(403).json({ error: "Accès refusé." });
-    }
-    const analytics = loadAnalytics();
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const clientId = req.query.clientId || "default";
+    const analytics = loadAnalytics(clientId);
 
-    // Recalculer les stats à partir des événements pour garantir la précision
-    const sessionsWithMsg = new Set();
-    const sessionsWithLead = new Set();
+    const sessionsWithMsg = new Set(), sessionsWithLead = new Set();
     let opens = 0, leads = 0, abandonments = 0;
 
     for (const ev of analytics.events) {
-        switch (ev.event) {
-            case "open":
-                opens++;
-                break;
-            case "user_message":
-                sessionsWithMsg.add(ev.sessionId);
-                break;
-            case "lead_captured":
-                leads++;
-                sessionsWithLead.add(ev.sessionId);
-                break;
-        }
+        if (ev.event === "open") opens++;
+        if (ev.event === "user_message") sessionsWithMsg.add(ev.sessionId);
+        if (ev.event === "lead_captured") { leads++; sessionsWithLead.add(ev.sessionId); }
     }
-
-    // Abandonments: sessions with user_message + close(>2 msgs) but no lead
     for (const ev of analytics.events) {
-        if (ev.event === "close" && ev.data?.messages > 2) {
-            if (!sessionsWithLead.has(ev.sessionId)) {
-                abandonments++;
-            }
-        }
+        if (ev.event === "close" && ev.data?.messages > 2 && !sessionsWithLead.has(ev.sessionId))
+            abandonments++;
     }
 
     const conversations = sessionsWithMsg.size;
-    const conversionRate = conversations > 0
-        ? ((leads / conversations) * 100).toFixed(1) + "%"
-        : "0%";
-    const abandonRate = conversations > 0
-        ? ((abandonments / conversations) * 100).toFixed(1) + "%"
-        : "0%";
-
     res.json({
         stats: {
-            opens,
-            conversations,
-            leads,
-            abandonments,
-            conversionRate,
-            abandonRate
+            opens, conversations, leads, abandonments,
+            conversionRate: conversations > 0 ? ((leads / conversations) * 100).toFixed(1) + "%" : "0%",
+            abandonRate: conversations > 0 ? ((abandonments / conversations) * 100).toFixed(1) + "%" : "0%"
         },
         recentEvents: analytics.events.slice(-100)
     });
 });
 
-// ---- Lancer le serveur ----
+// ============================================================
+// START
+// ============================================================
 app.listen(PORT, () => {
-    const cfg = CLIENT_CONFIG;
-    console.log(`\n✅ Chatbot IA démarré sur http://localhost:${PORT}`);
-    console.log(`🏢 Client : ${cfg ? cfg.companyName : 'Non configuré'}`);
+    console.log(`\n✅ Serveur multi-clients démarré sur http://localhost:${PORT}`);
     console.log(`📊 Dashboard : http://localhost:${PORT}/dashboard`);
-    console.log(`📦 Guide d'intégration : http://localhost:${PORT}/embed`);
-    console.log(`📋 API Leads : http://localhost:${PORT}/api/leads?key=${process.env.ADMIN_KEY || "admin123"}`);
-    console.log(`📈 API Analytics : http://localhost:${PORT}/api/analytics?key=${process.env.ADMIN_KEY || "admin123"}`);
-    if (!API_KEY) {
-        console.warn("\n⚠️  ATTENTION: La variable OPENROUTER_API_KEY n'est pas définie dans .env");
-    }
-    if (!cfg) {
-        console.warn("⚠️  ATTENTION: Aucun client-config.json trouvé. Lancez 'npm run setup' pour configurer.");
-    }
-    console.log("");
+    console.log(`👥 Clients : GET /api/admin/clients?key=${ADMIN_KEY}`);
+    console.log(`➕ Créer client : POST /api/admin/clients?key=${ADMIN_KEY}`);
+    if (!API_KEY) console.warn("⚠️  OPENROUTER_API_KEY manquante dans .env");
 });

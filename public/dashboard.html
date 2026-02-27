@@ -4,516 +4,388 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Chatbot IA</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #f0f2f7;
-        color: #1e2a5a;
-        min-height: 100vh;
-    }
+:root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2230;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.1);
+    --text: #e8eaf2;
+    --text2: #7c82a0;
+    --text3: #4a5070;
+    --accent: #6c8fff;
+    --accent2: #4d6fe8;
+    --green: #34d399;
+    --orange: #fb923c;
+    --red: #f87171;
+    --purple: #a78bfa;
+    --teal: #2dd4bf;
+    --yellow: #fbbf24;
+    --radius: 14px;
+    --radius-sm: 8px;
+}
 
-    /* ---- Auth screen ---- */
-    .auth-screen {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        padding: 20px;
-    }
-    .auth-box {
-        background: #fff;
-        border-radius: 20px;
-        padding: 40px;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.08);
-        width: 100%;
-        max-width: 380px;
-        text-align: center;
-    }
-    .auth-box h1 { font-size: 22px; margin-bottom: 8px; }
-    .auth-box p { color: #666; font-size: 14px; margin-bottom: 24px; }
-    .auth-box input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1.5px solid #e0e4ea;
-        border-radius: 12px;
-        font-size: 15px;
-        outline: none;
-        transition: border 0.2s;
-        margin-bottom: 16px;
-    }
-    .auth-box input:focus { border-color: #4B6BFB; }
-    .auth-box button {
-        width: 100%;
-        padding: 12px;
-        background: #4B6BFB;
-        color: #fff;
-        border: none;
-        border-radius: 12px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-    .auth-box button:hover { background: #3a56d4; }
-    .auth-error {
-        color: #dc2626;
-        font-size: 13px;
-        margin-top: 10px;
-        display: none;
-    }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+}
 
-    /* ---- Layout ---- */
-    .dashboard { display: none; }
-    .dashboard.active { display: block; }
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
 
-    .topbar {
-        background: #fff;
-        padding: 16px 32px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid #e8eaf0;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-    }
-    .topbar h1 { font-size: 20px; font-weight: 700; }
-    .topbar-right { display: flex; align-items: center; gap: 12px; }
-    .topbar .refresh-btn {
-        background: #f0f2f7;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 10px;
-        font-size: 13px;
-        cursor: pointer;
-        transition: background 0.2s;
-        color: #1e2a5a;
-        font-weight: 500;
-    }
-    .topbar .refresh-btn:hover { background: #e0e4ea; }
+/* ============================================================
+   AUTH
+============================================================ */
+.auth-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 20px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(108,143,255,0.08) 0%, transparent 60%);
+}
+.auth-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 44px 40px;
+    width: 100%; max-width: 400px;
+    text-align: center;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+}
+.auth-logo {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 auto 20px;
+    box-shadow: 0 8px 24px rgba(108,143,255,0.3);
+}
+.auth-box h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.auth-box p { color: var(--text2); font-size: 14px; margin-bottom: 28px; }
+.auth-box input {
+    width: 100%; padding: 12px 16px;
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); font-size: 15px; color: var(--text);
+    outline: none; transition: border 0.2s; margin-bottom: 14px;
+    font-family: 'DM Mono', monospace; letter-spacing: 2px;
+}
+.auth-box input:focus { border-color: var(--accent); }
+.auth-box input::placeholder { letter-spacing: 0; font-family: 'DM Sans', sans-serif; color: var(--text3); }
+.auth-box button {
+    width: 100%; padding: 13px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; border-radius: var(--radius-sm);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    font-family: 'DM Sans', sans-serif;
+}
+.auth-box button:hover { opacity: 0.9; transform: translateY(-1px); }
+.auth-error { color: var(--red); font-size: 13px; margin-top: 12px; display: none; }
 
-    /* Live indicator */
-    .live-indicator {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 6px 14px;
-        border-radius: 20px;
-        background: #f0fdf4;
-        color: #166534;
-        border: 1px solid #bbf7d0;
-        transition: all 0.3s;
-    }
-    .live-indicator.offline {
-        background: #fef2f2;
-        color: #991b1b;
-        border-color: #fecaca;
-    }
-    .live-dot {
-        width: 8px; height: 8px;
-        border-radius: 50%;
-        background: #22c55e;
-        animation: live-pulse 1.5s infinite;
-    }
-    .live-indicator.offline .live-dot {
-        background: #ef4444;
-        animation: none;
-    }
-    @keyframes live-pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.8); }
-    }
+/* ============================================================
+   LAYOUT
+============================================================ */
+.dashboard { display: none; }
+.dashboard.active { display: block; }
 
-    /* Toast notification */
-    .toast-container {
-        position: fixed;
-        top: 80px;
-        right: 24px;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .toast {
-        background: #fff;
-        border-radius: 12px;
-        padding: 12px 18px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        animation: toast-in 0.3s ease, toast-out 0.3s ease 3.7s forwards;
-        max-width: 340px;
-        border-left: 4px solid #4B6BFB;
-    }
-    .toast.lead { border-left-color: #059669; }
-    .toast-icon {
-        width: 32px; height: 32px;
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 14px; flex-shrink: 0;
-    }
-    .toast-icon.blue { background: #e0e7ff; color: #4B6BFB; }
-    .toast-icon.green { background: #dcfce7; color: #059669; }
-    .toast-body { flex: 1; }
-    .toast-title { font-weight: 600; font-size: 13px; }
-    .toast-desc { font-size: 11px; color: #888; margin-top: 1px; }
-    @keyframes toast-in { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
-    @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
+.topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    display: flex; align-items: center; gap: 16px;
+    height: 60px; position: sticky; top: 0; z-index: 100;
+}
+.topbar-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 15px; color: var(--text);
+    margin-right: 8px;
+}
+.brand-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    box-shadow: 0 0 8px rgba(108,143,255,0.6);
+}
 
-    .topbar .tab-group {
-        display: flex;
-        background: #f0f2f7;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    .topbar .tab-btn {
-        background: none;
-        border: none;
-        padding: 8px 20px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        color: #666;
-        transition: all 0.2s;
-    }
-    .topbar .tab-btn.active {
-        background: #4B6BFB;
-        color: #fff;
-        border-radius: 10px;
-    }
+/* Client selector */
+.client-selector-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 6px 12px;
+    cursor: pointer; transition: border 0.2s; min-width: 200px;
+    position: relative;
+}
+.client-selector-wrap:hover { border-color: var(--accent); }
+.client-selector-label { font-size: 12px; color: var(--text2); }
+.client-selector-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-selector-arrow { margin-left: auto; color: var(--text3); font-size: 11px; }
 
-    .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px;
-    }
+/* Client dropdown */
+.client-dropdown {
+    position: absolute; top: calc(100% + 8px); left: 0;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); min-width: 240px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    z-index: 200; display: none; overflow: hidden;
+    animation: dropdown-in 0.15s ease;
+}
+@keyframes dropdown-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.client-dropdown.open { display: block; }
+.dropdown-item {
+    padding: 10px 14px; cursor: pointer;
+    transition: background 0.15s; display: flex; align-items: center; gap: 10px;
+}
+.dropdown-item:hover { background: var(--surface2); }
+.dropdown-item.active { background: rgba(108,143,255,0.1); color: var(--accent); }
+.dropdown-item-avatar {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.dropdown-item-info { flex: 1; min-width: 0; }
+.dropdown-item-name { font-weight: 600; font-size: 13px; }
+.dropdown-item-id { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.dropdown-all { padding: 10px 14px; font-size: 12px; color: var(--text2); border-top: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+.dropdown-all:hover { background: var(--surface2); }
 
-    /* ---- Stat Cards ---- */
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 28px;
-    }
-    .stat-card {
-        background: #fff;
-        border-radius: 16px;
-        padding: 22px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-        transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    }
-    .stat-label {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: #888;
-        font-weight: 600;
-        margin-bottom: 6px;
-    }
-    .stat-value {
-        font-size: 32px;
-        font-weight: 700;
-        line-height: 1.1;
-    }
-    .stat-sub {
-        font-size: 12px;
-        color: #999;
-        margin-top: 4px;
-    }
-    .stat-card.purple .stat-value { color: #7c3aed; }
-    .stat-card.blue   .stat-value { color: #4B6BFB; }
-    .stat-card.green  .stat-value { color: #059669; }
-    .stat-card.orange .stat-value { color: #d97706; }
-    .stat-card.red    .stat-value { color: #dc2626; }
-    .stat-card.teal   .stat-value { color: #0d9488; }
+/* Tabs */
+.tab-group { display: flex; background: var(--bg); border-radius: var(--radius-sm); padding: 3px; gap: 2px; margin-left: auto; }
+.tab-btn {
+    background: none; border: none; padding: 6px 18px;
+    font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text2);
+    border-radius: 6px; transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface2); }
+.tab-btn.active { background: var(--surface2); color: var(--text); }
 
-    /* ---- Tables ---- */
-    .panel {
-        background: #fff;
-        border-radius: 16px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-        overflow: hidden;
-        margin-bottom: 24px;
-    }
-    .panel-header {
-        padding: 18px 24px;
-        font-weight: 600;
-        font-size: 16px;
-        border-bottom: 1px solid #f0f2f7;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .panel-header .badge {
-        background: #e9ecff;
-        color: #4B6BFB;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-    }
+/* Live indicator */
+.live-indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; padding: 5px 12px;
+    border-radius: 20px; white-space: nowrap;
+    background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.2);
+    transition: all 0.3s;
+}
+.live-indicator.offline { background: rgba(248,113,113,0.1); color: var(--red); border-color: rgba(248,113,113,0.2); }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: live-pulse 1.5s infinite; }
+.live-indicator.offline .live-dot { background: var(--red); animation: none; }
+@keyframes live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
 
-    .table-wrap {
-        overflow-x: auto;
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-    th {
-        text-align: left;
-        padding: 12px 18px;
-        background: #fafbff;
-        font-weight: 600;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #888;
-        border-bottom: 1px solid #f0f2f7;
-        white-space: nowrap;
-    }
-    td {
-        padding: 12px 18px;
-        border-bottom: 1px solid #f5f6fa;
-        vertical-align: middle;
-    }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #fafbff; }
+.topbar-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); padding: 6px 14px; border-radius: var(--radius-sm);
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif; white-space: nowrap;
+}
+.topbar-btn:hover { color: var(--text); border-color: var(--border2); }
 
-    /* ---- Event badges ---- */
-    .evt-badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 6px;
-        font-size: 12px;
-        font-weight: 600;
-    }
-    .evt-open            { background: #dbeafe; color: #1d4ed8; }
-    .evt-close           { background: #fef3c7; color: #92400e; }
-    .evt-user_message    { background: #e0e7ff; color: #4338ca; }
-    .evt-bot_reply       { background: #d1fae5; color: #065f46; }
-    .evt-lead_form_shown { background: #fce7f3; color: #9d174d; }
-    .evt-lead_captured   { background: #dcfce7; color: #166534; }
-    .evt-lead_skipped    { background: #fee2e2; color: #991b1b; }
-    .evt-widget_loaded   { background: #f3f4f6; color: #6b7280; }
+/* ============================================================
+   TOAST
+============================================================ */
+.toast-container { position: fixed; top: 72px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 12px 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    font-size: 13px; display: flex; align-items: center; gap: 10px;
+    animation: toast-in 0.3s ease, toast-out 0.3s ease 3.7s forwards;
+    max-width: 320px; border-left: 3px solid var(--accent);
+}
+.toast.lead { border-left-color: var(--green); }
+.toast-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.toast-icon.blue { background: rgba(108,143,255,0.15); color: var(--accent); }
+.toast-icon.green { background: rgba(52,211,153,0.15); color: var(--green); }
+.toast-body { flex: 1; }
+.toast-title { font-weight: 600; }
+.toast-desc { font-size: 11px; color: var(--text2); margin-top: 1px; }
+@keyframes toast-in { from{opacity:0;transform:translateX(30px)} to{opacity:1;transform:translateX(0)} }
+@keyframes toast-out { from{opacity:1} to{opacity:0;transform:translateX(30px)} }
 
-    /* ---- Lead status ---- */
-    .lead-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: #e9ecff;
-        color: #4B6BFB;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 14px;
-        flex-shrink: 0;
-    }
-    .lead-name-cell {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    .lead-name { font-weight: 600; }
-    .lead-email { font-size: 12px; color: #888; }
+/* ============================================================
+   CONTAINER & TABS
+============================================================ */
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
-    /* ---- Empty state ---- */
-    .empty-state {
-        padding: 60px 20px;
-        text-align: center;
-        color: #aaa;
-    }
-    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
-    .empty-state p { font-size: 14px; }
+/* ============================================================
+   STAT CARDS
+============================================================ */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    transition: transform 0.15s, border-color 0.2s;
+    position: relative; overflow: hidden;
+}
+.stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--card-accent, var(--accent)); opacity: 0.6;
+}
+.stat-card:hover { transform: translateY(-2px); border-color: var(--border2); }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); font-weight: 600; margin-bottom: 8px; }
+.stat-value { font-size: 30px; font-weight: 700; line-height: 1; color: var(--card-accent, var(--accent)); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 6px; }
+.stat-card.blue   { --card-accent: var(--accent); }
+.stat-card.green  { --card-accent: var(--green); }
+.stat-card.teal   { --card-accent: var(--teal); }
+.stat-card.orange { --card-accent: var(--orange); }
+.stat-card.red    { --card-accent: var(--red); }
+.stat-card.purple { --card-accent: var(--purple); }
 
-    /* ---- Loading spinner ---- */
-    .spinner {
-        display: inline-block;
-        width: 20px; height: 20px;
-        border: 2.5px solid #e0e4ea;
-        border-top-color: #4B6BFB;
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+/* ============================================================
+   PANELS
+============================================================ */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+.panel-header { padding: 16px 20px; font-weight: 600; font-size: 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.badge { background: rgba(108,143,255,0.15); color: var(--accent); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 
-    .loading-overlay {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        padding: 60px;
-        color: #888;
-        font-size: 14px;
-    }
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 16px; background: rgba(255,255,255,0.02); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text2); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
 
-    /* Tab content */
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+/* Event badges */
+.evt-badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; }
+.evt-open            { background: rgba(108,143,255,0.15); color: var(--accent); }
+.evt-close           { background: rgba(251,146,60,0.15); color: var(--orange); }
+.evt-user_message    { background: rgba(167,139,250,0.15); color: var(--purple); }
+.evt-bot_reply       { background: rgba(52,211,153,0.15); color: var(--green); }
+.evt-lead_form_shown { background: rgba(251,191,36,0.15); color: var(--yellow); }
+.evt-lead_captured   { background: rgba(52,211,153,0.2); color: var(--green); }
+.evt-lead_skipped    { background: rgba(248,113,113,0.15); color: var(--red); }
+.evt-widget_loaded   { background: rgba(255,255,255,0.06); color: var(--text3); }
 
-    /* ---- Timeline ---- */
-    .timeline { padding: 20px 24px; }
-    .timeline-item {
-        display: flex;
-        gap: 14px;
-        padding: 10px 0;
-        border-bottom: 1px solid #f5f6fa;
-        align-items: flex-start;
-    }
-    .timeline-item:last-child { border-bottom: none; }
-    .timeline-time {
-        font-size: 12px;
-        color: #999;
-        white-space: nowrap;
-        min-width: 58px;
-        padding-top: 2px;
-    }
-    .timeline-content { flex: 1; }
-    .timeline-page {
-        font-size: 11px;
-        color: #bbb;
-        margin-top: 2px;
-        word-break: break-all;
-    }
+/* Lead avatar */
+.lead-avatar { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--purple)); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; color: #fff; }
+.lead-name-cell { display: flex; align-items: center; gap: 10px; }
+.lead-name { font-weight: 600; color: var(--text); }
+.lead-email { font-size: 11px; color: var(--text3); }
 
-    /* ---- Responsive ---- */
-    @media (max-width: 640px) {
-        .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
-        .container { padding: 16px; }
-        .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .stat-card { padding: 16px; }
-        .stat-value { font-size: 24px; }
-        .conv-modal-box { width: calc(100vw - 16px); height: calc(100dvh - 40px); margin: 20px 8px; }
-    }
+/* Empty state */
+.empty-state { padding: 60px 20px; text-align: center; color: var(--text3); }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { font-size: 14px; }
 
-    /* ---- Conversation Modal ---- */
-    .conv-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.45);
-        z-index: 1000;
-        justify-content: center;
-        align-items: center;
-    }
-    .conv-overlay.open { display: flex; }
+/* Spinner */
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--surface2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.loading-overlay { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px; color: var(--text2); font-size: 14px; }
 
-    .conv-modal-box {
-        background: #fff;
-        border-radius: 20px;
-        width: min(520px, calc(100vw - 40px));
-        max-height: calc(100dvh - 80px);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-        animation: modal-in 0.25s ease;
-    }
-    @keyframes modal-in {
-        from { opacity: 0; transform: translateY(12px) scale(0.97); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
+/* Timeline */
+.timeline { padding: 12px 20px; }
+.timeline-item { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.timeline-item:last-child { border-bottom: none; }
+.timeline-time { font-size: 11px; color: var(--text3); white-space: nowrap; min-width: 60px; padding-top: 3px; font-family: 'DM Mono', monospace; }
+.timeline-content { flex: 1; }
+.timeline-page { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: 'DM Mono', monospace; }
 
-    .conv-header {
-        padding: 18px 24px;
-        border-bottom: 1px solid #f0f2f7;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .conv-header-info h3 {
-        font-size: 16px;
-        font-weight: 700;
-        margin: 0 0 2px;
-    }
-    .conv-header-info span {
-        font-size: 12px;
-        color: #888;
-    }
-    .conv-close {
-        background: #f0f2f7;
-        border: none;
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        font-size: 18px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #666;
-        transition: background 0.15s;
-    }
-    .conv-close:hover { background: #e0e4ea; }
+/* Funnel */
+#funnel-chart { padding: 20px; }
 
-    .conv-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        background: #fafbff;
-    }
-    .conv-msg {
-        padding: 10px 16px;
-        border-radius: 16px;
-        max-width: 85%;
-        font-size: 14px;
-        line-height: 1.5;
-        word-wrap: break-word;
-        white-space: pre-wrap;
-    }
-    .conv-msg.user {
-        background: #4B6BFB;
-        color: #fff;
-        align-self: flex-end;
-        border-bottom-right-radius: 4px;
-    }
-    .conv-msg.bot {
-        background: #e1e5ff;
-        color: #1e2a5a;
-        align-self: flex-start;
-        border-bottom-left-radius: 4px;
-    }
-    .conv-msg-label {
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 3px;
-    }
-    .conv-msg.user .conv-msg-label { color: rgba(255,255,255,0.7); }
-    .conv-msg.bot .conv-msg-label { color: #8891b5; }
+/* ============================================================
+   CLIENTS TAB
+============================================================ */
+.clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.client-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+    cursor: pointer; transition: transform 0.15s, border-color 0.2s;
+}
+.client-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.client-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.client-card-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; color: #fff; flex-shrink: 0;
+}
+.client-card-name { font-weight: 700; font-size: 15px; }
+.client-card-id { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.client-card-snippet {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+    font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text2);
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    margin-bottom: 12px;
+}
+.client-card-actions { display: flex; gap: 8px; }
+.btn-copy {
+    flex: 1; background: rgba(108,143,255,0.1); color: var(--accent);
+    border: 1px solid rgba(108,143,255,0.2); border-radius: var(--radius-sm);
+    padding: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+}
+.btn-copy:hover { background: rgba(108,143,255,0.2); }
+.btn-view {
+    flex: 1; background: var(--surface2); color: var(--text2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+}
+.btn-view:hover { color: var(--text); border-color: var(--border2); }
+.btn-add-client {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s; font-family: 'DM Sans', sans-serif;
+}
+.btn-add-client:hover { opacity: 0.9; }
 
-    .conv-empty {
-        padding: 40px;
-        text-align: center;
-        color: #aaa;
-        font-size: 14px;
-    }
+/* ============================================================
+   CONVERSATION MODAL
+============================================================ */
+.conv-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+.conv-overlay.open { display: flex; }
+.conv-modal-box {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 20px; width: min(520px, calc(100vw - 40px));
+    max-height: calc(100dvh - 80px); display: flex; flex-direction: column;
+    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    animation: modal-in 0.25s ease;
+}
+@keyframes modal-in { from{opacity:0;transform:translateY(12px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+.conv-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.conv-header-info h3 { font-size: 15px; font-weight: 700; }
+.conv-header-info span { font-size: 12px; color: var(--text2); }
+.conv-close { background: var(--surface2); border: none; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); transition: background 0.15s; }
+.conv-close:hover { background: var(--border2); color: var(--text); }
+.conv-messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+.conv-msg { padding: 10px 14px; border-radius: 14px; max-width: 85%; font-size: 13px; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap; }
+.conv-msg.user { background: var(--accent2); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.conv-msg.bot { background: var(--surface2); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
+.conv-msg-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; opacity: 0.6; }
+.conv-empty { padding: 40px; text-align: center; color: var(--text3); font-size: 13px; }
 
-    /* Make lead rows clickable */
-    #leads-tbody tr {
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    #leads-tbody tr:hover td {
-        background: #f0f2ff;
-    }
+/* Leads table clickable */
+#leads-tbody tr { cursor: pointer; }
+#leads-tbody tr:hover td { background: rgba(108,143,255,0.04); }
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width: 640px) {
+    .topbar { padding: 0 14px; flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 10px; gap: 10px; }
+    .container { padding: 14px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-value { font-size: 24px; }
+    .tab-group { order: 3; width: 100%; }
+    .tab-btn { flex: 1; text-align: center; }
+}
+
+/* Page enter animation */
+.fade-in { animation: fade-in 0.4s ease; }
+@keyframes fade-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 </style>
 </head>
 <body>
@@ -521,10 +393,11 @@
 <!-- ===== AUTH ===== -->
 <div class="auth-screen" id="auth-screen">
     <div class="auth-box">
-        <h1>Dashboard</h1>
-        <p>Entrez la clé admin pour accéder au tableau de bord.</p>
+        <div class="auth-logo">💬</div>
+        <h1>Dashboard Chatbot</h1>
+        <p>Entrez votre clé admin pour accéder.</p>
         <input type="password" id="auth-key" placeholder="Clé admin..." autofocus>
-        <button id="auth-btn">Accéder</button>
+        <button id="auth-btn">Accéder au dashboard</button>
         <div class="auth-error" id="auth-error">Clé invalide. Réessayez.</div>
     </div>
 </div>
@@ -533,38 +406,58 @@
 <div class="dashboard" id="dashboard">
 
     <div class="topbar">
-        <h1>Dashboard Chatbot</h1>
-        <div class="topbar-right">
-            <div class="live-indicator offline" id="live-indicator">
-                <span class="live-dot"></span>
-                <span id="live-text">Hors ligne</span>
-            </div>
-            <div class="tab-group">
-                <button class="tab-btn active" data-tab="analytics">Analytics</button>
-                <button class="tab-btn" data-tab="leads">Leads</button>
-                <button class="tab-btn" data-tab="events">Evenements</button>
-            </div>
-            <button class="refresh-btn" id="refresh-btn">Actualiser</button>
+        <div class="topbar-brand">
+            <div class="brand-dot"></div>
+            Chatbot IA
         </div>
+
+        <!-- Client selector -->
+        <div class="client-selector-wrap" id="client-selector-wrap">
+            <div>
+                <div class="client-selector-label">Client actif</div>
+                <div class="client-selector-name" id="client-selector-name">Tous les clients</div>
+            </div>
+            <div class="client-selector-arrow">▾</div>
+            <div class="client-dropdown" id="client-dropdown">
+                <div class="dropdown-item" data-client-id="" data-client-name="Tous les clients">
+                    <div class="dropdown-item-avatar" style="background:linear-gradient(135deg,#6c8fff,#a78bfa);">★</div>
+                    <div class="dropdown-item-info">
+                        <div class="dropdown-item-name">Tous les clients</div>
+                        <div class="dropdown-item-id">Vue globale</div>
+                    </div>
+                </div>
+                <div id="dropdown-clients-list"></div>
+            </div>
+        </div>
+
+        <div class="live-indicator offline" id="live-indicator">
+            <span class="live-dot"></span>
+            <span id="live-text">Hors ligne</span>
+        </div>
+
+        <div class="tab-group">
+            <button class="tab-btn active" data-tab="analytics">Analytics</button>
+            <button class="tab-btn" data-tab="leads">Leads</button>
+            <button class="tab-btn" data-tab="events">Événements</button>
+            <button class="tab-btn" data-tab="clients">Clients</button>
+        </div>
+
+        <button class="topbar-btn" id="refresh-btn">↺ Actualiser</button>
     </div>
 
     <div class="toast-container" id="toast-container"></div>
 
-    <div class="container">
-        <!-- ===== Analytics Tab ===== -->
+    <div class="container fade-in">
+        <!-- Analytics -->
         <div class="tab-content active" id="tab-analytics">
-            <div class="stats-grid" id="stats-grid">
-                <!-- filled by JS -->
-            </div>
+            <div class="stats-grid" id="stats-grid"></div>
             <div class="panel">
-                <div class="panel-header">
-                    <span>Résumé des conversions</span>
-                </div>
-                <div id="funnel-chart" style="padding:24px;"></div>
+                <div class="panel-header"><span>Entonnoir de conversion</span></div>
+                <div id="funnel-chart"></div>
             </div>
         </div>
 
-        <!-- ===== Leads Tab ===== -->
+        <!-- Leads -->
         <div class="tab-content" id="tab-leads">
             <div class="panel">
                 <div class="panel-header">
@@ -573,17 +466,15 @@
                 </div>
                 <div class="table-wrap">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Contact</th>
-                                <th>Téléphone</th>
-                                <th>Source</th>
-                                <th>Messages</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leads-tbody">
-                        </tbody>
+                        <thead><tr>
+                            <th>Contact</th>
+                            <th>Téléphone</th>
+                            <th>Client</th>
+                            <th>Source</th>
+                            <th>Messages</th>
+                            <th>Date</th>
+                        </tr></thead>
+                        <tbody id="leads-tbody"></tbody>
                     </table>
                 </div>
                 <div class="empty-state" id="leads-empty" style="display:none;">
@@ -593,7 +484,7 @@
             </div>
         </div>
 
-        <!-- ===== Events Tab ===== -->
+        <!-- Events -->
         <div class="tab-content" id="tab-events">
             <div class="panel">
                 <div class="panel-header">
@@ -608,15 +499,31 @@
             </div>
         </div>
 
-        <!-- Loading -->
+        <!-- Clients -->
+        <div class="tab-content" id="tab-clients">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Clients configurés</span>
+                    <button class="btn-add-client" id="btn-add-client">+ Nouveau client</button>
+                </div>
+                <div style="padding:20px;">
+                    <div class="clients-grid" id="clients-grid"></div>
+                    <div class="empty-state" id="clients-empty" style="display:none;">
+                        <div class="icon">🏢</div>
+                        <p>Aucun client configuré.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="loading-overlay" id="loading">
             <div class="spinner"></div>
-            Chargement des données...
+            Chargement...
         </div>
     </div>
 </div>
 
-<!-- ===== CONVERSATION MODAL ===== -->
+<!-- Conversation Modal -->
 <div class="conv-overlay" id="conv-overlay">
     <div class="conv-modal-box">
         <div class="conv-header">
@@ -635,433 +542,435 @@
     "use strict";
 
     var adminKey = "";
-    var $ = function (id) { return document.getElementById(id); };
-
-    // ---- State ----
-    var currentStats = { opens: 0, conversations: 0, leads: 0, abandonments: 0, conversionRate: "0%", abandonRate: "0%" };
+    var currentClientId = "";
+    var currentClientName = "Tous les clients";
+    var clientsList = [];
+    var currentStats = { opens:0, conversations:0, leads:0, abandonments:0, conversionRate:"0%", abandonRate:"0%" };
     var currentEvents = [];
     var leadsData = [];
     var evtSource = null;
     var reconnectTimer = null;
     var sessionsSeen = {};
 
+    function $(id) { return document.getElementById(id); }
+
+    // ---- Lire clientId depuis l'URL ----
+    function getUrlParam(name) {
+        return new URLSearchParams(window.location.search).get(name) || "";
+    }
+
+    function setUrlParam(name, value) {
+        var url = new URL(window.location.href);
+        if (value) url.searchParams.set(name, value);
+        else url.searchParams.delete(name);
+        window.history.replaceState({}, "", url.toString());
+    }
+
     // ---- Auth ----
     function tryAuth() {
         var key = $("auth-key").value.trim();
         if (!key) return;
         adminKey = key;
+
+        // Lire clientId depuis l'URL dès le départ
+        currentClientId = getUrlParam("clientId");
+
         loadAll().then(function (ok) {
             if (ok) {
                 $("auth-screen").style.display = "none";
                 $("dashboard").classList.add("active");
+                loadClients();
                 connectSSE();
             } else {
                 $("auth-error").style.display = "block";
+                adminKey = "";
             }
         });
     }
     $("auth-btn").addEventListener("click", tryAuth);
-    $("auth-key").addEventListener("keydown", function (e) {
-        if (e.key === "Enter") tryAuth();
+    $("auth-key").addEventListener("keydown", function(e){ if(e.key==="Enter") tryAuth(); });
+
+    // ---- Client selector ----
+    var wrap = $("client-selector-wrap");
+    var dropdown = $("client-dropdown");
+
+    wrap.addEventListener("click", function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle("open");
+    });
+    document.addEventListener("click", function() { dropdown.classList.remove("open"); });
+
+    function selectClient(clientId, clientName) {
+        currentClientId = clientId;
+        currentClientName = clientName || "Tous les clients";
+        $("client-selector-name").textContent = currentClientName;
+        setUrlParam("clientId", clientId);
+        dropdown.classList.remove("open");
+
+        // Mettre à jour actif dans le dropdown
+        dropdown.querySelectorAll(".dropdown-item").forEach(function(item) {
+            item.classList.toggle("active", item.dataset.clientId === clientId);
+        });
+
+        // Recharger les données
+        loadAll();
+        if (evtSource) { evtSource.close(); connectSSE(); }
+    }
+
+    // Item "Tous" déjà dans le HTML
+    dropdown.querySelector(".dropdown-item").addEventListener("click", function() {
+        selectClient("", "Tous les clients");
     });
 
+    function loadClients() {
+        fetch("/api/admin/clients?key=" + encodeURIComponent(adminKey))
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+                clientsList = data.clients || [];
+                renderDropdownClients(clientsList);
+                renderClientsTab(clientsList);
+
+                // Si clientId dans URL, retrouver le nom
+                if (currentClientId) {
+                    var found = clientsList.find(function(c){ return c.clientId === currentClientId; });
+                    if (found) {
+                        $("client-selector-name").textContent = found.companyName;
+                        currentClientName = found.companyName;
+                    }
+                }
+            })
+            .catch(function(){});
+    }
+
+    function renderDropdownClients(clients) {
+        var list = $("dropdown-clients-list");
+        var html = "";
+        clients.forEach(function(c) {
+            var initials = (c.companyName || c.clientId).slice(0,2).toUpperCase();
+            html += '<div class="dropdown-item" data-client-id="'+escHtml(c.clientId)+'" data-client-name="'+escHtml(c.companyName)+'">'
+                + '<div class="dropdown-item-avatar">'+escHtml(initials)+'</div>'
+                + '<div class="dropdown-item-info">'
+                + '<div class="dropdown-item-name">'+escHtml(c.companyName)+'</div>'
+                + '<div class="dropdown-item-id">'+escHtml(c.clientId)+'</div>'
+                + '</div></div>';
+        });
+        list.innerHTML = html;
+        list.querySelectorAll(".dropdown-item").forEach(function(item) {
+            item.classList.toggle("active", item.dataset.clientId === currentClientId);
+            item.addEventListener("click", function() {
+                selectClient(item.dataset.clientId, item.dataset.clientName);
+            });
+        });
+    }
+
     // ---- Tabs ----
-    document.querySelectorAll(".tab-btn").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-            document.querySelectorAll(".tab-btn").forEach(function (b) { b.classList.remove("active"); });
-            document.querySelectorAll(".tab-content").forEach(function (t) { t.classList.remove("active"); });
+    document.querySelectorAll(".tab-btn").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+            document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+            document.querySelectorAll(".tab-content").forEach(function(t){ t.classList.remove("active"); });
             btn.classList.add("active");
-            $("tab-" + btn.dataset.tab).classList.add("active");
+            $("tab-"+btn.dataset.tab).classList.add("active");
+            if (btn.dataset.tab === "clients") loadClients();
         });
     });
 
-    // ---- Refresh ----
-    $("refresh-btn").addEventListener("click", function () {
-        loadAll();
-    });
+    $("refresh-btn").addEventListener("click", function(){ loadAll(); loadClients(); });
 
-    // ---- Toast Notifications ----
+    // ---- Toast ----
     function showToast(title, desc, type) {
-        var container = $("toast-container");
-        var toast = document.createElement("div");
-        toast.className = "toast" + (type === "lead" ? " lead" : "");
-        var iconCls = type === "lead" ? "green" : "blue";
-        var iconChar = type === "lead" ? "+" : "i";
-        toast.innerHTML = '<div class="toast-icon ' + iconCls + '">' + iconChar + '</div>'
-            + '<div class="toast-body"><div class="toast-title">' + escHtml(title) + '</div>'
-            + '<div class="toast-desc">' + escHtml(desc) + '</div></div>';
-        container.appendChild(toast);
-        setTimeout(function () { if (toast.parentNode) toast.remove(); }, 4000);
+        var c = $("toast-container");
+        var t = document.createElement("div");
+        t.className = "toast" + (type==="lead"?" lead":"");
+        var ic = type==="lead"?"green":"blue", ch = type==="lead"?"✦":"·";
+        t.innerHTML = '<div class="toast-icon '+ic+'">'+ch+'</div>'
+            + '<div class="toast-body"><div class="toast-title">'+escHtml(title)+'</div>'
+            + '<div class="toast-desc">'+escHtml(desc)+'</div></div>';
+        c.appendChild(t);
+        setTimeout(function(){ if(t.parentNode) t.remove(); }, 4000);
     }
 
-    // ---- SSE (Server-Sent Events) ----
+    // ---- SSE ----
     function connectSSE() {
-        if (evtSource) { evtSource.close(); }
+        if (evtSource) evtSource.close();
         var url = "/api/stream?key=" + encodeURIComponent(adminKey);
+        if (currentClientId) url += "&clientId=" + encodeURIComponent(currentClientId);
         evtSource = new EventSource(url);
-
-        evtSource.onopen = function () {
-            setLiveStatus(true);
-            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-        };
-
-        evtSource.onmessage = function (e) {
-            try {
-                var msg = JSON.parse(e.data);
-                handleSSE(msg);
-            } catch (err) { console.warn("SSE parse error", err); }
-        };
-
-        evtSource.onerror = function () {
-            setLiveStatus(false);
-            evtSource.close();
-            // Reconnexion automatique
-            reconnectTimer = setTimeout(function () { connectSSE(); }, 3000);
-        };
+        evtSource.onopen = function(){ setLive(true); if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;} };
+        evtSource.onmessage = function(e){ try{ handleSSE(JSON.parse(e.data)); }catch(err){} };
+        evtSource.onerror = function(){ setLive(false); evtSource.close(); reconnectTimer=setTimeout(connectSSE, 3000); };
     }
 
-    function setLiveStatus(online) {
-        var el = $("live-indicator");
-        var txt = $("live-text");
-        if (online) {
-            el.classList.remove("offline");
-            txt.textContent = "Temps reel";
-        } else {
-            el.classList.add("offline");
-            txt.textContent = "Reconnexion...";
-        }
+    function setLive(on) {
+        var el=$("live-indicator"), tx=$("live-text");
+        el.classList.toggle("offline", !on);
+        tx.textContent = on ? "Temps réel" : "Reconnexion...";
     }
 
     function handleSSE(msg) {
         if (msg.type === "connected") return;
-
         if (msg.type === "analytics") {
             var ev = msg.payload;
-            // Ajouter au timeline local
             currentEvents.push(ev);
             if (currentEvents.length > 200) currentEvents = currentEvents.slice(-200);
-
-            // Mettre a jour les stats incrementalement
-            switch (ev.event) {
-                case "open":
-                    currentStats.opens++;
-                    showToast("Nouvelle ouverture", "Un visiteur a ouvert le chat", "event");
-                    break;
-                case "user_message":
-                    if (!sessionsSeen[ev.sessionId]) {
-                        sessionsSeen[ev.sessionId] = true;
-                        currentStats.conversations++;
-                    }
-                    break;
-                case "bot_reply":
-                    break;
-                case "lead_form_shown":
-                    showToast("Formulaire affiche", "Raison: " + (ev.data && ev.data.reason || "auto"), "event");
-                    break;
-                case "lead_captured":
-                    currentStats.leads++;
-                    showToast("Nouveau lead !", ev.data && ev.data.email || "", "lead");
-                    break;
-                case "lead_skipped":
-                    showToast("Lead ignore", "Un visiteur a refuse le formulaire", "event");
-                    break;
+            switch(ev.event) {
+                case "open": currentStats.opens++; showToast("Ouverture", "Un visiteur a ouvert le chat", "event"); break;
+                case "user_message": if(!sessionsSeen[ev.sessionId]){sessionsSeen[ev.sessionId]=true;currentStats.conversations++;} break;
+                case "lead_captured": currentStats.leads++; showToast("Nouveau lead !", ev.data&&ev.data.email||"", "lead"); break;
+                case "lead_form_shown": showToast("Formulaire affiché", "Raison: "+(ev.data&&ev.data.reason||"auto"), "event"); break;
+                case "lead_skipped": showToast("Lead ignoré", "Un visiteur a refusé", "event"); break;
                 case "close":
-                    if (ev.data && ev.data.messages > 2) {
-                        // Verifier si pas de lead pour cette session
-                        var hadLead = currentEvents.some(function (e) {
-                            return e.sessionId === ev.sessionId && e.event === "lead_captured";
-                        });
-                        if (!hadLead) currentStats.abandonments++;
-                    }
-                    break;
+                    if(ev.data&&ev.data.messages>2){
+                        var hadLead=currentEvents.some(function(x){return x.sessionId===ev.sessionId&&x.event==="lead_captured";});
+                        if(!hadLead) currentStats.abandonments++;
+                    } break;
             }
-
-            // Recalculer les taux
-            if (currentStats.conversations > 0) {
-                currentStats.conversionRate = (currentStats.leads / currentStats.conversations * 100).toFixed(1) + "%";
-                currentStats.abandonRate = (currentStats.abandonments / currentStats.conversations * 100).toFixed(1) + "%";
+            if(currentStats.conversations>0){
+                currentStats.conversionRate=(currentStats.leads/currentStats.conversations*100).toFixed(1)+"%";
+                currentStats.abandonRate=(currentStats.abandonments/currentStats.conversations*100).toFixed(1)+"%";
             }
-
-            // Re-render stats + events
             renderStats(currentStats);
             renderFunnel(currentStats);
             renderEvents(currentEvents);
         }
-
         if (msg.type === "new_lead") {
             var lead = msg.payload;
             leadsData.push(lead);
             renderLeads(leadsData, leadsData.length);
-            showToast("Lead enregistre", (lead.firstName || "") + " " + (lead.lastName || "") + " - " + (lead.email || ""), "lead");
+            showToast("Lead enregistré", (lead.firstName||"")+" "+(lead.lastName||"")+" — "+(lead.email||""), "lead");
         }
     }
 
-    // ---- Helpers ----
-    function fmtDate(iso) {
-        if (!iso) return "\u2014";
-        var d = new Date(iso);
-        return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
-            + " " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-    }
-
-    function fmtTime(iso) {
-        if (!iso) return "";
-        var d = new Date(iso);
-        return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    }
-
-    function shortUrl(url) {
-        if (!url) return "\u2014";
-        try { return new URL(url).pathname || url; } catch (e) { return url; }
-    }
-
-    function initials(name) {
-        if (!name) return "?";
-        return name.split(/\s+/).map(function (w) { return w[0]; }).join("").toUpperCase().slice(0, 2);
-    }
-
-    function evtLabel(evt) {
-        var labels = {
-            "open": "Ouverture",
-            "close": "Fermeture",
-            "user_message": "Message user",
-            "bot_reply": "Reponse bot",
-            "lead_form_shown": "Formulaire affiche",
-            "lead_captured": "Lead capture",
-            "lead_skipped": "Lead ignore",
-            "widget_loaded": "Widget charge"
-        };
-        return labels[evt] || evt;
-    }
-
-    // ---- Data loading (initial) ----
-    async function loadAll(silent) {
-        if (!silent) $("loading").style.display = "flex";
+    // ---- Load all ----
+    async function loadAll() {
+        $("loading").style.display = "flex";
         try {
-            var [analyticsRes, leadsRes] = await Promise.all([
-                fetch("/api/analytics?key=" + encodeURIComponent(adminKey)),
-                fetch("/api/leads?key=" + encodeURIComponent(adminKey))
-            ]);
-
-            if (!analyticsRes.ok || !leadsRes.ok) {
-                if (!silent) $("loading").style.display = "none";
-                return false;
+            var analyticsUrl = "/api/analytics?key=" + encodeURIComponent(adminKey);
+            var leadsUrl = "/api/leads?key=" + encodeURIComponent(adminKey);
+            if (currentClientId) {
+                analyticsUrl += "&clientId=" + encodeURIComponent(currentClientId);
+                leadsUrl += "&clientId=" + encodeURIComponent(currentClientId);
             }
-
-            var analytics = await analyticsRes.json();
-            var leads = await leadsRes.json();
-
-            // Stocker les donnees pour les mises a jour incrementales
+            var [ar, lr] = await Promise.all([fetch(analyticsUrl), fetch(leadsUrl)]);
+            if (!ar.ok || !lr.ok) { $("loading").style.display="none"; return false; }
+            var analytics = await ar.json();
+            var leads = await lr.json();
             currentStats = analytics.stats || currentStats;
             currentEvents = analytics.recentEvents || [];
             leadsData = leads.leads || [];
-
-            // Reconstruire l'index des sessions
             sessionsSeen = {};
-            currentEvents.forEach(function (ev) {
-                if (ev.event === "user_message") sessionsSeen[ev.sessionId] = true;
-            });
-
+            currentEvents.forEach(function(ev){ if(ev.event==="user_message") sessionsSeen[ev.sessionId]=true; });
             renderStats(currentStats);
             renderFunnel(currentStats);
             renderEvents(currentEvents);
             renderLeads(leadsData, leads.total);
-
-            $("loading").style.display = "none";
+            $("loading").style.display="none";
             return true;
-        } catch (e) {
-            console.error("Dashboard load error:", e);
-            $("loading").style.display = "none";
+        } catch(e) {
+            $("loading").style.display="none";
             return false;
         }
     }
 
-    // ---- Render Stats Cards ----
-    function renderStats(stats) {
+    // ---- Render Stats ----
+    function renderStats(s) {
         var cards = [
-            { label: "Ouvertures", value: stats.opens || 0, cls: "blue", sub: "Nombre de fois que le chat a ete ouvert" },
-            { label: "Conversations", value: stats.conversations || 0, cls: "purple", sub: "Conversations uniques demarrees" },
-            { label: "Leads captures", value: stats.leads || 0, cls: "green", sub: "Formulaires de contact remplis" },
-            { label: "Taux de conversion", value: stats.conversionRate || "0%", cls: "teal", sub: "Leads / Conversations" },
-            { label: "Abandons", value: stats.abandonments || 0, cls: "orange", sub: "Fermetures sans lead (>2 msg)" },
-            { label: "Taux d'abandon", value: stats.abandonRate || "0%", cls: "red", sub: "Abandons / Conversations" }
+            {label:"Ouvertures", value:s.opens||0, cls:"blue", sub:"Chat ouvert"},
+            {label:"Conversations", value:s.conversations||0, cls:"purple", sub:"Sessions uniques"},
+            {label:"Leads", value:s.leads||0, cls:"green", sub:"Formulaires remplis"},
+            {label:"Conversion", value:s.conversionRate||"0%", cls:"teal", sub:"Leads / Conversations"},
+            {label:"Abandons", value:s.abandonments||0, cls:"orange", sub:"Fermetures sans lead"},
+            {label:"Taux abandon", value:s.abandonRate||"0%", cls:"red", sub:"Abandons / Conversations"}
         ];
-
-        var html = "";
-        cards.forEach(function (c) {
-            html += '<div class="stat-card ' + c.cls + '">'
-                + '<div class="stat-label">' + c.label + '</div>'
-                + '<div class="stat-value">' + c.value + '</div>'
-                + '<div class="stat-sub">' + c.sub + '</div>'
-                + '</div>';
-        });
-        $("stats-grid").innerHTML = html;
+        $("stats-grid").innerHTML = cards.map(function(c) {
+            return '<div class="stat-card '+c.cls+'">'
+                +'<div class="stat-label">'+c.label+'</div>'
+                +'<div class="stat-value">'+c.value+'</div>'
+                +'<div class="stat-sub">'+c.sub+'</div>'
+                +'</div>';
+        }).join("");
     }
 
     // ---- Render Funnel ----
-    function renderFunnel(stats) {
-        var opens = stats.opens || 0;
-        var convs = stats.conversations || 0;
-        var leads = stats.leads || 0;
-
-        var steps = [
-            { label: "Ouvertures", value: opens, color: "#4B6BFB" },
-            { label: "Conversations", value: convs, color: "#7c3aed" },
-            { label: "Leads", value: leads, color: "#059669" }
-        ];
-
-        var max = Math.max(opens, 1);
-        var html = '<div style="display:flex;flex-direction:column;gap:14px;">';
-        steps.forEach(function (s) {
-            var pct = Math.max((s.value / max) * 100, 4);
-            html += '<div>'
-                + '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
-                + '<span style="font-size:13px;font-weight:600;color:#555;">' + s.label + '</span>'
-                + '<span style="font-size:13px;font-weight:700;color:' + s.color + ';">' + s.value + '</span>'
-                + '</div>'
-                + '<div style="background:#f0f2f7;border-radius:8px;height:28px;overflow:hidden;">'
-                + '<div style="background:' + s.color + ';height:100%;width:' + pct + '%;border-radius:8px;transition:width 0.5s ease;min-width:28px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">'
-                + '<span style="color:#fff;font-size:11px;font-weight:600;">' + (opens > 0 ? Math.round(s.value / opens * 100) + '%' : '\u2014') + '</span>'
-                + '</div></div></div>';
+    function renderFunnel(s) {
+        var opens=s.opens||0, convs=s.conversations||0, leads=s.leads||0;
+        var steps=[{l:"Ouvertures",v:opens,c:"var(--accent)"},{l:"Conversations",v:convs,c:"var(--purple)"},{l:"Leads",v:leads,c:"var(--green)"}];
+        var max=Math.max(opens,1);
+        var html='<div style="display:flex;flex-direction:column;gap:14px;">';
+        steps.forEach(function(s){
+            var pct=Math.max((s.v/max)*100,3);
+            html+='<div><div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
+                +'<span style="font-size:13px;font-weight:500;color:var(--text2);">'+s.l+'</span>'
+                +'<span style="font-size:14px;font-weight:700;color:'+s.c+';">'+s.v+'</span>'
+                +'</div>'
+                +'<div style="background:var(--surface2);border-radius:6px;height:24px;overflow:hidden;">'
+                +'<div style="background:'+s.c+';height:100%;width:'+pct+'%;border-radius:6px;transition:width 0.6s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">'
+                +'<span style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:600;">'+(opens>0?Math.round(s.v/opens*100)+'%':'—')+'</span>'
+                +'</div></div></div>';
         });
-        html += '</div>';
-        $("funnel-chart").innerHTML = html;
+        html+='</div>';
+        $("funnel-chart").innerHTML=html;
     }
 
-    // ---- Render Events Timeline ----
+    // ---- Render Events ----
     function renderEvents(events) {
-        $("events-count").textContent = events.length;
-        if (events.length === 0) {
-            $("events-timeline").style.display = "none";
-            $("events-empty").style.display = "block";
-            return;
-        }
-        $("events-timeline").style.display = "block";
-        $("events-empty").style.display = "none";
-
-        // Show newest first
-        var reversed = events.slice().reverse();
-        var html = "";
-        reversed.forEach(function (ev) {
-            var evtClass = "evt-" + (ev.event || "").replace(/[^a-z_]/g, "");
-            var extra = "";
-            if (ev.event === "lead_captured" && ev.data && ev.data.email) {
-                extra = ' \u2014 <strong>' + escHtml(ev.data.email) + '</strong>';
-            }
-            if (ev.event === "close" && ev.data && ev.data.messages) {
-                extra = ' \u2014 ' + ev.data.messages + ' messages';
-            }
-            if (ev.event === "bot_reply" && ev.data && ev.data.count) {
-                extra = ' \u2014 reponse #' + ev.data.count;
-            }
-            if (ev.event === "lead_form_shown" && ev.data && ev.data.reason) {
-                extra = ' \u2014 raison: ' + ev.data.reason;
-            }
-
-            html += '<div class="timeline-item">'
-                + '<div class="timeline-time">' + fmtTime(ev.timestamp) + '</div>'
-                + '<div class="timeline-content">'
-                + '<span class="evt-badge ' + evtClass + '">' + evtLabel(ev.event) + '</span>'
-                + extra
-                + '<div class="timeline-page">' + escHtml(shortUrl(ev.page)) + '</div>'
-                + '</div></div>';
+        $("events-count").textContent=events.length;
+        if(!events.length){$("events-timeline").style.display="none";$("events-empty").style.display="block";return;}
+        $("events-timeline").style.display="block";$("events-empty").style.display="none";
+        var labels={"open":"Ouverture","close":"Fermeture","user_message":"Message","bot_reply":"Réponse bot","lead_form_shown":"Formulaire","lead_captured":"Lead ✓","lead_skipped":"Lead ignoré","widget_loaded":"Widget chargé"};
+        var html="";
+        events.slice().reverse().forEach(function(ev){
+            var cls="evt-"+(ev.event||"").replace(/[^a-z_]/g,"");
+            var extra="";
+            if(ev.event==="lead_captured"&&ev.data&&ev.data.email) extra=' — <strong style="color:var(--green);">'+escHtml(ev.data.email)+'</strong>';
+            if(ev.event==="close"&&ev.data&&ev.data.messages) extra=' — '+ev.data.messages+' msg';
+            if(ev.event==="lead_form_shown"&&ev.data&&ev.data.reason) extra=' — '+ev.data.reason;
+            html+='<div class="timeline-item">'
+                +'<div class="timeline-time">'+fmtTime(ev.timestamp)+'</div>'
+                +'<div class="timeline-content">'
+                +'<span class="evt-badge '+cls+'">'+(labels[ev.event]||ev.event)+'</span>'+extra
+                +'<div class="timeline-page">'+escHtml(shortUrl(ev.page))+'</div>'
+                +'</div></div>';
         });
-        $("events-timeline").innerHTML = html;
+        $("events-timeline").innerHTML=html;
     }
 
-    // ---- Render Leads Table ----
+    // ---- Render Leads ----
     function renderLeads(leads, total) {
-        leadsData = leads;
-        $("leads-count").textContent = total || leads.length;
-        if (leads.length === 0) {
-            $("leads-tbody").innerHTML = "";
-            $("leads-empty").style.display = "block";
-            return;
-        }
-        $("leads-empty").style.display = "none";
-
-        var sorted = leads.slice().sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
-        var html = "";
-        sorted.forEach(function (lead, idx) {
-            var displayName = lead.firstName
-                ? escHtml(lead.firstName) + " " + escHtml(lead.lastName || "")
-                : escHtml(lead.name || "Anonyme");
-            var hasConv = lead.conversation && lead.conversation.length > 0;
-            var convBadgeStyle = hasConv
-                ? "background:#e9ecff;color:#4B6BFB;"
-                : "background:#f3f4f6;color:#aaa;";
-            html += '<tr data-lead-idx="' + idx + '"' + (!hasConv ? ' title="Pas de conversation enregistree"' : '') + '>'
-                + '<td><div class="lead-name-cell">'
-                + '<div class="lead-avatar">' + initials(lead.firstName || lead.name) + '</div>'
-                + '<div><div class="lead-name">' + displayName + '</div>'
-                + '<div class="lead-email">' + escHtml(lead.email || "\u2014") + '</div></div>'
-                + '</div></td>'
-                + '<td>' + escHtml(lead.phone || "\u2014") + '</td>'
-                + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#888;">'
-                + escHtml(shortUrl(lead.source)) + '</td>'
-                + '<td><span style="' + convBadgeStyle + 'padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">'
-                + (lead.conversationLength || 0) + '</span></td>'
-                + '<td style="white-space:nowrap;font-size:13px;">' + fmtDate(lead.timestamp) + '</td>'
-                + '</tr>';
+        leadsData=leads;
+        $("leads-count").textContent=total||leads.length;
+        if(!leads.length){$("leads-tbody").innerHTML="";$("leads-empty").style.display="block";return;}
+        $("leads-empty").style.display="none";
+        var sorted=leads.slice().sort(function(a,b){return(b.id||0)-(a.id||0);});
+        var html="";
+        sorted.forEach(function(lead, idx){
+            var dname=lead.firstName?escHtml(lead.firstName)+" "+escHtml(lead.lastName||""):escHtml(lead.name||"Anonyme");
+            html+='<tr data-lead-idx="'+idx+'">'
+                +'<td><div class="lead-name-cell"><div class="lead-avatar">'+initials(lead.firstName||lead.name)+'</div>'
+                +'<div><div class="lead-name">'+dname+'</div><div class="lead-email">'+escHtml(lead.email||"—")+'</div></div></div></td>'
+                +'<td>'+escHtml(lead.phone||"—")+'</td>'
+                +'<td><span style="background:rgba(108,143,255,0.1);color:var(--accent);padding:2px 8px;border-radius:5px;font-size:11px;font-family:\'DM Mono\',monospace;">'+escHtml(lead.clientId||"—")+'</span></td>'
+                +'<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text3);">'+escHtml(shortUrl(lead.source))+'</td>'
+                +'<td><span style="background:rgba(108,143,255,0.1);color:var(--accent);padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;">'+(lead.conversationLength||0)+'</span></td>'
+                +'<td style="white-space:nowrap;font-size:12px;font-family:\'DM Mono\',monospace;color:var(--text2);">'+fmtDate(lead.timestamp)+'</td>'
+                +'</tr>';
         });
-        $("leads-tbody").innerHTML = html;
-
-        var sortedRef = sorted;
-        $("leads-tbody").querySelectorAll("tr").forEach(function (row) {
-            row.addEventListener("click", function () {
-                var idx = parseInt(row.getAttribute("data-lead-idx"), 10);
-                if (!isNaN(idx) && sortedRef[idx]) openConversation(sortedRef[idx]);
+        $("leads-tbody").innerHTML=html;
+        var sortedRef=sorted;
+        $("leads-tbody").querySelectorAll("tr").forEach(function(row){
+            row.addEventListener("click",function(){
+                var idx=parseInt(row.getAttribute("data-lead-idx"),10);
+                if(!isNaN(idx)&&sortedRef[idx]) openConversation(sortedRef[idx]);
             });
         });
     }
 
-    function escHtml(s) {
-        var d = document.createElement("div");
-        d.textContent = s || "";
-        return d.innerHTML;
+    // ---- Render Clients Tab ----
+    function renderClientsTab(clients) {
+        if(!clients.length){$("clients-grid").innerHTML="";$("clients-empty").style.display="block";return;}
+        $("clients-empty").style.display="none";
+        var html="";
+        clients.forEach(function(c){
+            var ini=(c.companyName||c.clientId).slice(0,2).toUpperCase();
+            var snippet=c.snippet||'';
+            html+='<div class="client-card" data-client-id="'+escHtml(c.clientId)+'">'
+                +'<div class="client-card-header">'
+                +'<div class="client-card-avatar">'+escHtml(ini)+'</div>'
+                +'<div><div class="client-card-name">'+escHtml(c.companyName||c.clientId)+'</div>'
+                +'<div class="client-card-id">'+escHtml(c.clientId)+'</div></div>'
+                +'</div>'
+                +'<div class="client-card-snippet">'+escHtml(snippet)+'</div>'
+                +'<div class="client-card-actions">'
+                +'<button class="btn-copy" data-snippet="'+escHtml(snippet)+'">Copier le snippet</button>'
+                +'<button class="btn-view" data-client-id="'+escHtml(c.clientId)+'" data-client-name="'+escHtml(c.companyName)+'">Voir analytics</button>'
+                +'</div></div>';
+        });
+        $("clients-grid").innerHTML=html;
+
+        $("clients-grid").querySelectorAll(".btn-copy").forEach(function(btn){
+            btn.addEventListener("click",function(e){
+                e.stopPropagation();
+                navigator.clipboard.writeText(btn.dataset.snippet).then(function(){
+                    var orig=btn.textContent;
+                    btn.textContent="✓ Copié !";
+                    setTimeout(function(){btn.textContent=orig;},2000);
+                }).catch(function(){});
+            });
+        });
+        $("clients-grid").querySelectorAll(".btn-view").forEach(function(btn){
+            btn.addEventListener("click",function(e){
+                e.stopPropagation();
+                selectClient(btn.dataset.clientId, btn.dataset.clientName);
+                // Switch to analytics tab
+                document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active");});
+                document.querySelectorAll(".tab-content").forEach(function(t){t.classList.remove("active");});
+                document.querySelector('[data-tab="analytics"]').classList.add("active");
+                $("tab-analytics").classList.add("active");
+            });
+        });
     }
+
+    $("btn-add-client").addEventListener("click", function(){
+        var clientId = prompt("ID du client (ex: garage-dupont) :");
+        if (!clientId) return;
+        var companyName = prompt("Nom de l'entreprise :");
+        if (!companyName) return;
+        fetch("/api/admin/clients?key="+encodeURIComponent(adminKey), {
+            method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ clientId: clientId, config: { companyName: companyName } })
+        }).then(function(r){ return r.json(); }).then(function(data){
+            if(data.ok){
+                showToast("Client créé !", companyName+" ("+data.clientId+")", "lead");
+                loadClients();
+            } else { alert("Erreur : " + (data.error||"inconnue")); }
+        }).catch(function(){ alert("Erreur réseau"); });
+    });
 
     // ---- Conversation Modal ----
     function openConversation(lead) {
-        var displayName = lead.firstName
-            ? lead.firstName + " " + (lead.lastName || "")
-            : (lead.name || "Anonyme");
-        $("conv-title").textContent = displayName;
-        $("conv-subtitle").textContent = (lead.email || "") + (lead.phone ? " \u2014 " + lead.phone : "");
-
-        var msgs = lead.conversation || [];
-        var container = $("conv-messages");
-
-        if (msgs.length === 0) {
-            container.innerHTML = '<div class="conv-empty">Aucun message enregistre pour ce lead.<br><span style="font-size:12px;color:#bbb;margin-top:6px;display:block;">Les conversations ne sont sauvegardees que pour les nouveaux leads.</span></div>';
+        var dname=lead.firstName?lead.firstName+" "+(lead.lastName||""):(lead.name||"Anonyme");
+        $("conv-title").textContent=dname;
+        $("conv-subtitle").textContent=(lead.email||"")+(lead.phone?" — "+lead.phone:"");
+        var msgs=lead.conversation||[];
+        var container=$("conv-messages");
+        if(!msgs.length){
+            container.innerHTML='<div class="conv-empty">Aucun message enregistré pour ce lead.</div>';
         } else {
-            var html = "";
-            msgs.forEach(function (m) {
-                var cls = m.role === "user" ? "user" : "bot";
-                var label = m.role === "user" ? "Visiteur" : "Assistant";
-                html += '<div class="conv-msg ' + cls + '">'
-                    + '<div class="conv-msg-label">' + label + '</div>'
-                    + escHtml(m.text)
-                    + '</div>';
-            });
-            container.innerHTML = html;
+            container.innerHTML=msgs.map(function(m){
+                var cls=m.role==="user"?"user":"bot";
+                var label=m.role==="user"?"Visiteur":"Assistant";
+                return '<div class="conv-msg '+cls+'"><div class="conv-msg-label">'+label+'</div>'+escHtml(m.text)+'</div>';
+            }).join("");
         }
-
         $("conv-overlay").classList.add("open");
-        container.scrollTop = container.scrollHeight;
+        container.scrollTop=container.scrollHeight;
     }
 
-    function closeConversation() {
-        $("conv-overlay").classList.remove("open");
-    }
+    $("conv-close").addEventListener("click",function(){ $("conv-overlay").classList.remove("open"); });
+    $("conv-overlay").addEventListener("click",function(e){ if(e.target===$("conv-overlay")) $("conv-overlay").classList.remove("open"); });
+    document.addEventListener("keydown",function(e){ if(e.key==="Escape") $("conv-overlay").classList.remove("open"); });
 
-    $("conv-close").addEventListener("click", closeConversation);
-    $("conv-overlay").addEventListener("click", function (e) {
-        if (e.target === $("conv-overlay")) closeConversation();
-    });
-    document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && $("conv-overlay").classList.contains("open")) closeConversation();
-    });
+    // ---- Helpers ----
+    function fmtDate(iso) {
+        if(!iso) return "—";
+        var d=new Date(iso);
+        return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})+" "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    }
+    function fmtTime(iso) {
+        if(!iso) return "";
+        var d=new Date(iso);
+        return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    }
+    function shortUrl(url) {
+        if(!url) return "—";
+        try{return new URL(url).pathname||url;}catch(e){return url;}
+    }
+    function initials(name) {
+        if(!name) return "?";
+        return name.split(/\s+/).map(function(w){return w[0];}).join("").toUpperCase().slice(0,2);
+    }
+    function escHtml(s) {
+        var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML;
+    }
 
 })();
 </script>

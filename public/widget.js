@@ -5,6 +5,7 @@
  *   <script>
  *   window.CHATBOT_CONFIG = {
  *       server: "https://VOTRE-SERVEUR.com",
+ *       clientId: "nom-du-client",   <-- NOUVEAU
  *       color: "#4B6BFB",
  *       name: "Assistant",
  *       logo: "",
@@ -26,6 +27,7 @@
     // ============================================================
     var CFG = Object.assign({
         server: "",
+        clientId: "",          // ← identifiant du client
         color: "#4B6BFB",
         name: "Assistant",
         logo: "",
@@ -41,7 +43,6 @@
     if (!CFG.server) {
         if (window.CHATBOT_SERVER) { CFG.server = window.CHATBOT_SERVER; }
         else {
-            // Auto-detect server from script src URL
             try {
                 var scripts = document.getElementsByTagName("script");
                 for (var i = scripts.length - 1; i >= 0; i--) {
@@ -57,6 +58,30 @@
             console.error("[Chatbot] Serveur non configure. Ajoutez window.CHATBOT_CONFIG = { server: '...' }");
             return;
         }
+    }
+
+    // ============================================================
+    // MODULE: Auto-chargement config depuis le serveur
+    // Si le clientId est fourni, on récupère la config dynamiquement
+    // ============================================================
+    function applyServerConfig(cfg) {
+        if (!cfg) return;
+        if (cfg.name)        CFG.name        = cfg.name;
+        if (cfg.welcome)     CFG.welcome     = cfg.welcome;
+        if (cfg.placeholder) CFG.placeholder = cfg.placeholder;
+        if (cfg.color)       CFG.color       = cfg.color;
+        if (cfg.logo)        CFG.logo        = cfg.logo;
+        if (cfg.position)    CFG.position    = cfg.position;
+        if (cfg.leadDelay)   CFG.leadDelay   = cfg.leadDelay;
+        if (cfg.leadTimeDelay) CFG.leadTimeDelay = cfg.leadTimeDelay;
+        if (cfg.leadKeywords && cfg.leadKeywords.length) CFG.leadKeywords = cfg.leadKeywords;
+    }
+
+    if (CFG.clientId) {
+        fetch(CFG.server + "/api/widget-config?clientId=" + encodeURIComponent(CFG.clientId))
+            .then(function(r){ return r.json(); })
+            .then(function(cfg){ applyServerConfig(cfg); })
+            .catch(function(){});
     }
 
     // ============================================================
@@ -83,7 +108,9 @@
     // ============================================================
     // MODULE: Session & Persistence
     // ============================================================
-    var SK = "cb_session", HK = "cb_history", LK = "cb_lead";
+    var SK = "cb_session_" + (CFG.clientId || "default");
+    var HK = "cb_history_" + (CFG.clientId || "default");
+    var LK = "cb_lead_"    + (CFG.clientId || "default");
 
     function store(k, v) { try { localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch(e){} }
     function storeSession(k, v) { try { sessionStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); } catch(e){} }
@@ -153,17 +180,24 @@
                 tryLeadTrigger("time");
                 clearInterval(timeCheckTimer); timeCheckTimer = null;
             }
-        }, 5000); // check every 5 seconds
+        }, 5000);
     }
 
     // ============================================================
-    // MODULE: Analytics
+    // MODULE: Analytics  ← clientId ajouté
     // ============================================================
     function track(evt, data) {
         try {
             fetch(CFG.server+"/api/analytics", {
                 method:"POST", headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({ sessionId:sessionId, event:evt, data:data||{}, page:location.href, timestamp:new Date().toISOString() })
+                body: JSON.stringify({
+                    sessionId: sessionId,
+                    event: evt,
+                    data: data || {},
+                    page: location.href,
+                    timestamp: new Date().toISOString(),
+                    clientId: CFG.clientId || ""   // ← NOUVEAU
+                })
             }).catch(function(){});
         } catch(e){}
     }
@@ -182,32 +216,26 @@
         "#cb-box{width:380px;height:520px;position:fixed;bottom:92px;",posR?"right:20px;":"left:20px;","background:#fff;border-radius:18px;box-shadow:0 12px 48px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;z-index:99998;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}",
         "#cb-box.cb-open{display:flex;animation:cb-up .3s ease}",
         "@keyframes cb-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}",
-        // Header
         "#cb-hd{background:",CFG.color,";color:#fff;padding:16px 18px;font-weight:600;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:10px}",
         "#cb-hd-l{display:flex;align-items:center;gap:10px}",
         "#cb-hd-l img{width:30px;height:30px;border-radius:50%;object-fit:cover}",
         ".cb-x{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s}",
         ".cb-x:hover{background:rgba(255,255,255,.3)}",
         ".cb-x:focus-visible{outline:2px solid #fff;outline-offset:2px}",
-        // Online dot
         ".cb-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:4px;animation:cb-pulse 2s infinite}",
         "@keyframes cb-pulse{0%,100%{opacity:1}50%{opacity:.4}}",
-        // Messages
         "#cb-msgs{flex:1;padding:14px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:8px;background:#fafbff;scroll-behavior:smooth}",
         ".cb-m{padding:10px 14px;border-radius:16px;max-width:84%;line-height:1.5;word-wrap:break-word;white-space:pre-wrap;font-size:14px}",
         ".cb-b{background:",CL,";align-self:flex-start;border-bottom-left-radius:4px;color:#1e2a5a}",
         ".cb-u{background:",CFG.color,";color:#fff;align-self:flex-end;border-bottom-right-radius:4px}",
         ".cb-s{background:#fff3cd;color:#664d03;align-self:center;text-align:center;font-size:13px;border-radius:10px;max-width:95%}",
-        // Typing animated dots
         ".cb-tp{background:",CL,";align-self:flex-start;border-bottom-left-radius:4px;padding:12px 18px;display:flex;gap:5px}",
         ".cb-tp span{width:7px;height:7px;border-radius:50%;background:#999;animation:cb-dot-bounce .6s infinite alternate}",
         ".cb-tp span:nth-child(2){animation-delay:.2s}",
         ".cb-tp span:nth-child(3){animation-delay:.4s}",
         "@keyframes cb-dot-bounce{0%{opacity:.3;transform:translateY(0)}100%{opacity:1;transform:translateY(-4px)}}",
-        // Network banner
         ".cb-net{background:#fee2e2;color:#991b1b;text-align:center;font-size:12px;padding:6px;display:none;font-weight:500}",
         ".cb-net.show{display:block}",
-        // Lead form
         ".cb-lf{background:#fff;border:1px solid #e0e0e0;border-radius:14px;padding:16px;margin:8px 0;align-self:flex-start;max-width:92%}",
         ".cb-lf p{margin:0 0 10px;font-size:14px;font-weight:600;color:#333}",
         ".cb-lf input[type=text],.cb-lf input[type=email],.cb-lf input[type=tel]{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box;font-family:inherit;outline:none;transition:border .2s}",
@@ -220,7 +248,6 @@
         ".cb-rgpd{display:flex;align-items:flex-start;gap:6px;margin:6px 0 4px}",
         ".cb-rgpd input[type=checkbox]{width:auto;margin:3px 0 0;padding:0;cursor:pointer;flex-shrink:0}",
         ".cb-rgpd label{font-size:11px;color:#888;line-height:1.3;cursor:pointer}",
-        // Input bar
         "#cb-bar{display:flex;align-items:center;padding:10px 12px;background:#fff;border-top:1px solid #eee;gap:8px}",
         "#cb-bar input{flex:1;padding:11px 16px;border:1.5px solid #e0e4ea;border-radius:24px;outline:none;font-size:14px;font-family:inherit;background:#f7f8fb;transition:border .2s,background .2s}",
         "#cb-bar input:focus{border-color:",CFG.color,";background:#fff}",
@@ -229,9 +256,7 @@
         "#cb-bar button:disabled{opacity:.4;cursor:not-allowed;transform:none}",
         "#cb-bar button:focus-visible{outline:3px solid ",CFG.color,";outline-offset:2px}",
         "#cb-bar input:focus-visible{outline:none;border-color:",CFG.color,"}",
-        // Footer
         "#cb-ft{text-align:center;padding:5px;font-size:10px;color:#c0c0c0;background:#fff;border-radius:0 0 18px 18px}",
-        // Responsive
         "@media(max-width:480px){",
             "#cb-box{width:calc(100vw - 16px);height:calc(100dvh - 100px);",posR?"right:8px;":"left:8px;","bottom:82px;border-radius:14px}",
             "#cb-btn{bottom:14px;",posR?"right:14px;":"left:14px;","width:56px;height:56px;font-size:22px}",
@@ -245,7 +270,6 @@
     // ============================================================
     // MODULE: UI Builder
     // ============================================================
-    // Widget button
     var btn = document.createElement("button");
     btn.id = "cb-btn";
     btn.setAttribute("aria-label", "Ouvrir le chat " + CFG.name);
@@ -254,7 +278,6 @@
     if (CFG.logo) { btn.innerHTML = '<img src="'+escAttr(CFG.logo)+'" alt="'+escAttr(CFG.name)+'">'; }
     else { btn.textContent = "\uD83D\uDCAC"; }
 
-    // Container
     var box = document.createElement("div");
     box.id = "cb-box";
     box.setAttribute("role", "dialog");
@@ -316,10 +339,8 @@
                 track("open");
                 convStart = Date.now();
                 firstOpen = false;
-                // Start periodic time check for lead form
                 if (!leadCaptured) startTimeCheck();
             }
-            // Show pending lead form when chat opens (if conditions met and not yet shown)
             if (!leadCaptured && !leadFormShown && botMsgCount >= CFG.leadDelay) {
                 setTimeout(function () { tryLeadTrigger("delay_open"); }, 1500);
             }
@@ -330,14 +351,12 @@
         toggle();
         track("close", { messages: history.length });
     });
-
-    // Close with Escape
     document.addEventListener("keydown", function(e) {
         if (e.key === "Escape" && isOpen) toggle();
     });
 
     // ============================================================
-    // MODULE: Messages (with DOM pruning)
+    // MODULE: Messages
     // ============================================================
     function scrollDown() {
         requestAnimationFrame(function() { msgs.scrollTop = msgs.scrollHeight; });
@@ -351,13 +370,10 @@
         if (type === "u") el.setAttribute("aria-label", "Vous dites");
         msgs.appendChild(el);
         displayedCount++;
-
-        // Pruning: remove oldest messages if too many in DOM
         while (displayedCount > CFG.maxDisplayedMessages && msgs.firstChild) {
             msgs.removeChild(msgs.firstChild);
             displayedCount--;
         }
-
         scrollDown();
         return el;
     }
@@ -378,7 +394,7 @@
     }
 
     // ============================================================
-    // MODULE: Lead Form (progressive)
+    // MODULE: Lead Form
     // ============================================================
     function showLeadForm(reason) {
         if (leadCaptured || leadFormShown) return;
@@ -408,7 +424,6 @@
         msgs.appendChild(f);
         scrollDown();
 
-        // Focus le premier champ
         var firstInput = $("cb-lfn");
         if (firstInput) setTimeout(function() { firstInput.focus(); }, 100);
 
@@ -428,21 +443,11 @@
         var ph = sanitize($("cb-lp").value, 25);
         var ck = $("cb-lc");
 
-        if (!fn || fn.length < 2) {
-            addMsg("Merci d'indiquer votre pr\u00e9nom.", "s"); return;
-        }
-        if (!ln || ln.length < 2) {
-            addMsg("Merci d'indiquer votre nom.", "s"); return;
-        }
-        if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) {
-            addMsg("Merci d'indiquer un email valide.", "s"); return;
-        }
-        if (ph && !/^[+\d][\d\s\-.()]{6,20}$/.test(ph)) {
-            addMsg("Num\u00e9ro de t\u00e9l\u00e9phone invalide.", "s"); return;
-        }
-        if (!ck || !ck.checked) {
-            addMsg("Veuillez accepter les conditions RGPD pour continuer.", "s"); return;
-        }
+        if (!fn || fn.length < 2) { addMsg("Merci d'indiquer votre pr\u00e9nom.", "s"); return; }
+        if (!ln || ln.length < 2) { addMsg("Merci d'indiquer votre nom.", "s"); return; }
+        if (!em || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { addMsg("Merci d'indiquer un email valide.", "s"); return; }
+        if (ph && !/^[+\d][\d\s\-.()]{6,20}$/.test(ph)) { addMsg("Num\u00e9ro de t\u00e9l\u00e9phone invalide.", "s"); return; }
+        if (!ck || !ck.checked) { addMsg("Veuillez accepter les conditions RGPD pour continuer.", "s"); return; }
 
         var fullName = fn + " " + ln;
         var f = $("cb-lf"); if (f) f.remove();
@@ -462,7 +467,8 @@
                     consent: true,
                     source: location.href,
                     conversation: history,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    clientId: CFG.clientId || ""   // ← NOUVEAU
                 }),
                 signal: ctrl.signal
             }).then(function(){ clearTimeout(to); }).catch(function(e){ console.warn("[Chatbot] Lead error",e); });
@@ -475,7 +481,7 @@
     }
 
     // ============================================================
-    // MODULE: AI API
+    // MODULE: AI API  ← clientId ajouté
     // ============================================================
     function askAI(text) {
         history.push({ role: "user", parts: [{ text: sanitize(text, 500) }] });
@@ -486,13 +492,15 @@
 
         return fetch(CFG.server+"/api/chat", {
             method:"POST", headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({ messages: history }),
+            body: JSON.stringify({
+                messages: history,
+                clientId: CFG.clientId || ""   // ← NOUVEAU
+            }),
             signal: ctrl.signal
         }).then(function(res) {
             clearTimeout(to);
             if (!res.ok) {
                 return res.json().catch(function(){ return {}; }).then(function(err) {
-                    console.error("[Chatbot] API error:", err);
                     if (res.status === 429) return "Trop de messages envoyes. Patientez un instant.";
                     return "Desole, une erreur est survenue. Reessayez dans un instant.";
                 });
@@ -505,7 +513,6 @@
                 botMsgCount++;
                 track("bot_reply", { count: botMsgCount });
 
-                // Smart lead trigger
                 if (!leadCaptured && !leadFormShown && isOpen) {
                     if (botMsgCount >= CFG.leadDelay) {
                         setTimeout(function(){ tryLeadTrigger("delay"); }, 800);
@@ -513,7 +520,6 @@
                         setTimeout(function(){ tryLeadTrigger("time"); }, 800);
                     }
                 }
-                // Re-trigger after skip (every 2 more replies)
                 if (!leadCaptured && !leadFormShown && isOpen && leadSkipCount > 0 && botMsgCount >= CFG.leadDelay + (leadSkipCount * 2)) {
                     setTimeout(function(){ tryLeadTrigger("re_trigger"); }, 1500);
                 }
@@ -539,7 +545,6 @@
             return;
         }
 
-        // Keyword lead trigger
         if (!leadCaptured && !leadFormShown && hasKeyword(text)) {
             setTimeout(function(){ tryLeadTrigger("keyword"); }, 1200);
         }
@@ -584,9 +589,6 @@
     } else {
         addMsg(CFG.welcome, "b");
     }
-
-    // NOTE: Don't trigger lead form here on restore — wait until user opens the chat
-    // The toggle() handler will check conditions and show the form when chat opens
 
     track("widget_loaded");
     updateNet();
