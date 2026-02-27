@@ -178,9 +178,22 @@ app.get("/api/stream", (req, res) => {
 // ============================================================
 // PAGES
 // ============================================================
+app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
 app.get("/dashboard", (req, res) => res.sendFile(path.join(__dirname, "public", "dashboard.html")));
 app.get("/new-client", (req, res) => res.sendFile(path.join(__dirname, "public", "new-client.html")));
 app.get("/embed", (req, res) => res.sendFile(path.join(__dirname, "public", "embed-example.html")));
+
+// ============================================================
+// AUTH CLIENT — vérifier la clé d'un client
+// ============================================================
+app.get("/api/client-auth", (req, res) => {
+    const { clientId, key } = req.query;
+    if (!clientId || !key) return res.status(400).json({ error: "clientId et key requis." });
+    const client = getClient(clientId);
+    if (!client) return res.status(404).json({ error: "Client introuvable." });
+    if (client.clientKey !== key) return res.status(403).json({ error: "Clé invalide." });
+    res.json({ ok: true, companyName: client.companyName });
+});
 
 // ============================================================
 // ADMIN — Gestion clients
@@ -188,11 +201,14 @@ app.get("/embed", (req, res) => res.sendFile(path.join(__dirname, "public", "emb
 app.get("/api/admin/clients", (req, res) => {
     if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
     const clients = loadClients();
+    const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
     const list = Object.entries(clients).map(([id, cfg]) => ({
         clientId: id,
         companyName: cfg.companyName || id,
         createdAt: cfg.createdAt || null,
-        snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "https://chatbot-jeoh.onrender.com", clientId: "${id}" };\n</script>\n<script src="https://chatbot-jeoh.onrender.com/widget.js"></script>`
+        clientKey: cfg.clientKey || null,
+        dashboardUrl: `${SERVER_URL}/dashboard?clientId=${id}&key=${cfg.clientKey || ""}`,
+        snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "${SERVER_URL}", clientId: "${id}" };\n</script>\n<script src="${SERVER_URL}/widget.js"></script>`
     }));
     res.json({ total: list.length, clients: list });
 });
@@ -204,11 +220,19 @@ app.post("/api/admin/clients", (req, res) => {
     const cleanId = clientId.toLowerCase().replace(/[^a-z0-9-_]/g, "").slice(0, 50);
     if (!cleanId) return res.status(400).json({ error: "clientId invalide." });
     const clients = loadClients();
-    clients[cleanId] = { ...config, clientId: cleanId, updatedAt: new Date().toISOString(), createdAt: clients[cleanId]?.createdAt || new Date().toISOString() };
+    const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
+    // Générer une clé unique pour ce client (on la garde si elle existe déjà)
+    const clientKey = clients[cleanId]?.clientKey || Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+    clients[cleanId] = {
+        ...config, clientId: cleanId, clientKey,
+        updatedAt: new Date().toISOString(),
+        createdAt: clients[cleanId]?.createdAt || new Date().toISOString()
+    };
     saveClients(clients);
     res.json({
-        ok: true, clientId: cleanId,
-        snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "https://chatbot-jeoh.onrender.com", clientId: "${cleanId}" };\n</script>\n<script src="https://chatbot-jeoh.onrender.com/widget.js"></script>`
+        ok: true, clientId: cleanId, clientKey,
+        dashboardUrl: `${SERVER_URL}/dashboard?clientId=${cleanId}&key=${clientKey}`,
+        snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "${SERVER_URL}", clientId: "${cleanId}" };\n</script>\n<script src="${SERVER_URL}/widget.js"></script>`
     });
 });
 
@@ -219,6 +243,7 @@ app.delete("/api/admin/clients/:clientId", (req, res) => {
     saveClients(clients);
     res.json({ ok: true });
 });
+
 
 // ============================================================
 // WIDGET CONFIG
@@ -332,9 +357,18 @@ app.post("/api/lead", (req, res) => {
     res.json({ success: true, message: "Lead enregistré." });
 });
 
+
+// Helper : vérifie soit adminKey soit clientKey valide pour un clientId
+function isAuthorized(req, clientId) {
+    const key = req.query.key;
+    if (key === ADMIN_KEY) return true;
+    const client = getClient(clientId);
+    return client && client.clientKey === key;
+}
+
 app.get("/api/leads", (req, res) => {
-    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
     const clientId = req.query.clientId || "default";
+    if (!isAuthorized(req, clientId)) return res.status(403).json({ error: "Accès refusé." });
     const leads = loadLeads(clientId);
     res.json({ total: leads.length, leads });
 });
@@ -362,8 +396,8 @@ app.post("/api/analytics", (req, res) => {
 });
 
 app.get("/api/analytics", (req, res) => {
-    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
     const clientId = req.query.clientId || "default";
+    if (!isAuthorized(req, clientId)) return res.status(403).json({ error: "Accès refusé." });
     const analytics = loadAnalytics(clientId);
 
     const sessionsWithMsg = new Set(), sessionsWithLead = new Set();
@@ -390,13 +424,24 @@ app.get("/api/analytics", (req, res) => {
     });
 });
 
+// SSE — accepte aussi la clientKey
+app.get("/api/stream", (req, res) => {
+    const clientId = req.query.clientId || "default";
+    if (!isAuthorized(req, clientId)) return res.status(403).json({ error: "Accès refusé." });
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
+    res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
+    if (!sseClients.has(clientId)) sseClients.set(clientId, new Set());
+    sseClients.get(clientId).add(res);
+    req.on("close", () => sseClients.get(clientId)?.delete(res));
+});
+
 // ============================================================
 // START
 // ============================================================
 app.listen(PORT, () => {
     console.log(`\n✅ Serveur multi-clients démarré sur http://localhost:${PORT}`);
-    console.log(`📊 Dashboard : http://localhost:${PORT}/dashboard`);
-    console.log(`👥 Clients : GET /api/admin/clients?key=${ADMIN_KEY}`);
-    console.log(`➕ Créer client : POST /api/admin/clients?key=${ADMIN_KEY}`);
+    console.log(`🔐 Admin : http://localhost:${PORT}/admin`);
+    console.log(`📊 Dashboard client : http://localhost:${PORT}/dashboard?clientId=XXX&key=YYY`);
+    console.log(`➕ Créer client : http://localhost:${PORT}/new-client`);
     if (!API_KEY) console.warn("⚠️  OPENROUTER_API_KEY manquante dans .env");
 });
