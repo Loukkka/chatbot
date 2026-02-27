@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nouveau client — Chatbot IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg: #09090f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --surface3: #1f1f28;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.1);
+    --text: #ededf5;
+    --text2: #8585a0;
+    --text3: #45455a;
+    --accent: #7c6fff;
+    --accent2: #5a4fd4;
+    --green: #3dffa0;
+    --green2: #0d9e5c;
+    --radius: 16px;
+    --radius-sm: 10px;
+}
+
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+}
+
+/* Background grid */
+body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+        linear-gradient(rgba(124,111,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,111,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+}
+
+.page {
+    position: relative; z-index: 1;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+}
+
+/* Header */
+.page-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 40px;
+}
+.back-btn {
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text2); padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; cursor: pointer; text-decoration: none;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+    display: flex; align-items: center; gap: 6px;
+}
+.back-btn:hover { color: var(--text); border-color: var(--accent); }
+
+.page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px; font-weight: 800;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.page-sub { font-size: 14px; color: var(--text2); margin-top: 2px; }
+
+/* Step indicator */
+.steps {
+    display: flex; gap: 0; margin-bottom: 36px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 4px; overflow: hidden;
+}
+.step {
+    flex: 1; padding: 10px; text-align: center;
+    border-radius: 12px; cursor: pointer; transition: all 0.2s;
+    font-size: 12px; font-weight: 600; color: var(--text3);
+}
+.step.active { background: var(--surface3); color: var(--text); }
+.step.done { color: var(--green); }
+.step-num {
+    display: inline-flex; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--surface3); align-items: center; justify-content: center;
+    font-size: 11px; margin-right: 6px; transition: all 0.2s;
+}
+.step.active .step-num { background: var(--accent); color: #fff; }
+.step.done .step-num { background: var(--green2); color: #fff; }
+
+/* Card sections */
+.card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; margin-bottom: 16px;
+    animation: fade-up 0.3s ease;
+}
+@keyframes fade-up { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+.card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px; font-weight: 700; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+}
+.card-title .icon {
+    width: 32px; height: 32px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+}
+.icon-purple { background: rgba(124,111,255,0.15); }
+.icon-blue { background: rgba(100,180,255,0.1); }
+.icon-green { background: rgba(61,255,160,0.1); }
+.icon-orange { background: rgba(255,160,60,0.1); }
+
+/* Form grid */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid.single { grid-template-columns: 1fr; }
+@media(max-width:600px) { .form-grid { grid-template-columns: 1fr; } }
+
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.span2 { grid-column: span 2; }
+@media(max-width:600px) { .form-group.span2 { grid-column: span 1; } }
+
+label {
+    font-size: 12px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+label .req { color: var(--accent); margin-left: 2px; }
+
+input[type=text], input[type=email], input[type=tel], input[type=url],
+input[type=password], input[type=color], textarea, select {
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 14px; color: var(--text); outline: none;
+    transition: border 0.2s, box-shadow 0.2s;
+    font-family: 'DM Sans', sans-serif; width: 100%;
+}
+input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,111,255,0.12);
+}
+input::placeholder, textarea::placeholder { color: var(--text3); }
+textarea { resize: vertical; min-height: 80px; }
+select { appearance: none; cursor: pointer; }
+select option { background: var(--surface); }
+
+input[type=color] {
+    padding: 4px 6px; height: 42px; cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+/* Dynamic lists */
+.dynamic-list { display: flex; flex-direction: column; gap: 8px; }
+.dynamic-item {
+    display: flex; gap: 8px; align-items: center;
+}
+.dynamic-item input { flex: 1; }
+.btn-remove {
+    width: 32px; height: 32px; flex-shrink: 0;
+    background: rgba(255,100,100,0.08); border: 1px solid rgba(255,100,100,0.15);
+    color: #ff6464; border-radius: 8px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+}
+.btn-remove:hover { background: rgba(255,100,100,0.15); }
+.btn-add-item {
+    background: none; border: 1px dashed var(--border2);
+    color: var(--text2); border-radius: var(--radius-sm);
+    padding: 8px 14px; font-size: 13px; cursor: pointer;
+    transition: all 0.2s; margin-top: 4px;
+    font-family: 'DM Sans', sans-serif; width: 100%;
+    text-align: left;
+}
+.btn-add-item:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Services */
+.service-block {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px; margin-bottom: 10px;
+    position: relative;
+}
+.service-block .btn-remove-service {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(255,100,100,0.08); border: 1px solid rgba(255,100,100,0.15);
+    color: #ff6464; border-radius: 6px; cursor: pointer; font-size: 12px;
+    padding: 3px 8px; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+}
+.service-block .btn-remove-service:hover { background: rgba(255,100,100,0.2); }
+
+/* Submit area */
+.submit-area { margin-top: 24px; display: flex; gap: 12px; align-items: center; }
+.btn-submit {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 14px 32px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; font-family: 'Syne', sans-serif;
+    box-shadow: 0 4px 20px rgba(124,111,255,0.3);
+}
+.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,111,255,0.4); }
+.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.submit-status { font-size: 13px; color: var(--text2); }
+
+/* Result box */
+.result-box {
+    background: var(--surface); border: 1px solid rgba(61,255,160,0.2);
+    border-radius: var(--radius); padding: 28px;
+    display: none; animation: fade-up 0.4s ease;
+}
+.result-box.show { display: block; }
+.result-title {
+    font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;
+    color: var(--green); margin-bottom: 6px;
+    display: flex; align-items: center; gap: 10px;
+}
+.result-sub { color: var(--text2); font-size: 14px; margin-bottom: 24px; }
+.snippet-block {
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 16px;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: var(--text2); line-height: 1.6; word-break: break-all;
+    margin-bottom: 14px; position: relative;
+    white-space: pre-wrap;
+}
+.btn-copy-snippet {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; border-radius: var(--radius-sm);
+    padding: 11px 24px; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+    width: 100%;
+}
+.btn-copy-snippet:hover { opacity: 0.9; }
+.result-actions { display: flex; gap: 10px; margin-top: 16px; }
+.btn-new { background: var(--surface2); border: 1px solid var(--border2); color: var(--text2); border-radius: var(--radius-sm); padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+.btn-new:hover { color: var(--text); border-color: var(--border2); }
+.btn-dash { background: rgba(124,111,255,0.1); border: 1px solid rgba(124,111,255,0.2); color: var(--accent); border-radius: var(--radius-sm); padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'DM Sans', sans-serif; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn-dash:hover { background: rgba(124,111,255,0.2); }
+
+/* Auth mini */
+.auth-bar {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 16px 20px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 28px;
+}
+.auth-bar label { text-transform: none; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; margin: 0; }
+.auth-bar input { flex: 1; max-width: 280px; }
+.auth-bar .status { font-size: 12px; }
+.auth-bar .status.ok { color: var(--green); }
+.auth-bar .status.err { color: #ff6464; }
+
+/* Server config */
+.server-bar {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 24px; font-size: 12px; color: var(--text3);
+}
+.server-bar span { font-family: 'DM Mono', monospace; color: var(--text2); }
+
+/* Tooltip hint */
+.hint { font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* Toggle section */
+.section-toggle {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; margin-bottom: 16px;
+    user-select: none;
+}
+.section-toggle-icon { color: var(--text3); font-size: 11px; transition: transform 0.2s; }
+.section-toggle-icon.open { transform: rotate(90deg); }
+.section-toggle-label { font-size: 13px; font-weight: 600; color: var(--text2); }
+.section-body { display: none; }
+.section-body.open { display: block; }
+</style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Header -->
+    <div class="page-header">
+        <a href="/dashboard" class="back-btn">← Dashboard</a>
+        <div>
+            <div class="page-title">Nouveau client</div>
+            <div class="page-sub">Configurez le chatbot et récupérez le snippet à intégrer</div>
+        </div>
+    </div>
+
+    <!-- Auth -->
+    <div class="auth-bar">
+        <label>🔑 Clé admin</label>
+        <input type="password" id="admin-key-input" placeholder="Entrez votre clé admin...">
+        <div class="status" id="auth-status"></div>
+    </div>
+
+    <!-- Server info -->
+    <div class="server-bar">
+        Serveur : <span id="server-url">—</span>
+    </div>
+
+    <!-- Form -->
+    <div id="form-wrap">
+
+        <!-- 1. Identité -->
+        <div class="card">
+            <div class="card-title"><div class="icon icon-purple">🏢</div> Identité de l'entreprise</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>ID client <span class="req">*</span></label>
+                    <input type="text" id="clientId" placeholder="garage-dupont" maxlength="50">
+                    <div class="hint">Lettres minuscules, chiffres et tirets uniquement</div>
+                </div>
+                <div class="form-group">
+                    <label>Nom de l'entreprise <span class="req">*</span></label>
+                    <input type="text" id="companyName" placeholder="Garage Dupont">
+                </div>
+                <div class="form-group span2">
+                    <label>Description</label>
+                    <input type="text" id="companyDescription" placeholder="Garage automobile spécialisé en entretien et réparation">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="contact@entreprise.fr">
+                </div>
+                <div class="form-group">
+                    <label>Téléphone</label>
+                    <input type="tel" id="phone" placeholder="01 23 45 67 89">
+                </div>
+                <div class="form-group">
+                    <label>Localisation</label>
+                    <input type="text" id="location" placeholder="Paris 15e">
+                </div>
+                <div class="form-group">
+                    <label>Horaires</label>
+                    <input type="text" id="hours" placeholder="Lun-Sam 8h-19h">
+                </div>
+                <div class="form-group span2">
+                    <label>Site web</label>
+                    <input type="url" id="website" placeholder="https://www.entreprise.fr">
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Chatbot -->
+        <div class="card">
+            <div class="card-title"><div class="icon icon-purple">💬</div> Apparence du chatbot</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nom du bot <span class="req">*</span></label>
+                    <input type="text" id="botName" placeholder="Alex" value="Assistant">
+                </div>
+                <div class="form-group">
+                    <label>Couleur principale</label>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="color" id="botColor" value="#7c6fff" style="width:60px;flex-shrink:0;">
+                        <input type="text" id="botColorHex" value="#7c6fff" placeholder="#4B6BFB" style="font-family:'DM Mono',monospace;">
+                    </div>
+                </div>
+                <div class="form-group span2">
+                    <label>Message d'accueil</label>
+                    <input type="text" id="botWelcome" value="Bonjour ! Comment puis-je vous aider ?" placeholder="Bonjour ! Comment puis-je vous aider ?">
+                </div>
+                <div class="form-group span2">
+                    <label>Placeholder input</label>
+                    <input type="text" id="botPlaceholder" value="Posez votre question..." placeholder="Posez votre question...">
+                </div>
+                <div class="form-group">
+                    <label>Position</label>
+                    <select id="botPosition">
+                        <option value="right">Droite</option>
+                        <option value="left">Gauche</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Déclenchement formulaire (nb messages)</label>
+                    <input type="text" id="leadDelay" value="3" placeholder="3">
+                    <div class="hint">Après combien de réponses du bot afficher le formulaire</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Services -->
+        <div class="card">
+            <div class="card-title"><div class="icon icon-blue">📦</div> Services & Tarifs</div>
+            <div id="services-list"></div>
+            <button class="btn-add-item" id="btn-add-service">+ Ajouter un service</button>
+        </div>
+
+        <!-- 4. Personnalité (avancé) -->
+        <div class="card">
+            <div class="card-title"><div class="icon icon-green">🎯</div> Personnalité du bot</div>
+
+            <div class="form-grid" style="margin-bottom:16px;">
+                <div class="form-group">
+                    <label>Ton</label>
+                    <input type="text" id="tone" placeholder="Professionnel mais chaleureux" value="Professionnel mais chaleureux">
+                </div>
+                <div class="form-group">
+                    <label>Longueur des réponses</label>
+                    <input type="text" id="responseLength" placeholder="Réponses concises (2-4 phrases max)" value="Réponses concises (2-4 phrases max)">
+                </div>
+                <div class="form-group span2">
+                    <label>Call to action</label>
+                    <input type="text" id="callToAction" placeholder="Proposer un rendez-vous pour discuter du projet" value="Proposer un rendez-vous pour discuter du projet">
+                </div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block;margin-bottom:8px;">Points forts à mettre en avant</label>
+                <div class="dynamic-list" id="strengths-list"></div>
+                <button class="btn-add-item" id="btn-add-strength">+ Ajouter un point fort</button>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block;margin-bottom:8px;">Questions de qualification</label>
+                <div class="dynamic-list" id="questions-list"></div>
+                <button class="btn-add-item" id="btn-add-question">+ Ajouter une question</button>
+            </div>
+
+            <div>
+                <label style="display:block;margin-bottom:8px;">Restrictions (ne jamais faire)</label>
+                <div class="dynamic-list" id="restrictions-list"></div>
+                <button class="btn-add-item" id="btn-add-restriction">+ Ajouter une restriction</button>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="submit-area">
+            <button class="btn-submit" id="btn-submit">Créer le client →</button>
+            <div class="submit-status" id="submit-status"></div>
+        </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-box" id="result-box">
+        <div class="result-title">✦ Client créé !</div>
+        <div class="result-sub" id="result-sub">Voici le snippet à coller sur le site du client.</div>
+        <div class="snippet-block" id="result-snippet"></div>
+        <button class="btn-copy-snippet" id="btn-copy-snippet">Copier le snippet</button>
+        <div class="result-actions">
+            <button class="btn-new" id="btn-new">+ Nouveau client</button>
+            <a class="btn-dash" id="link-dashboard" href="/dashboard">Voir dashboard →</a>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(function(){
+    "use strict";
+
+    // ---- Server URL ----
+    var SERVER = window.location.origin;
+    document.getElementById("server-url").textContent = SERVER;
+
+    // ---- Color sync ----
+    var colorInput = document.getElementById("botColor");
+    var colorHex = document.getElementById("botColorHex");
+    colorInput.addEventListener("input", function(){ colorHex.value = colorInput.value; });
+    colorHex.addEventListener("input", function(){
+        if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) colorInput.value = colorHex.value;
+    });
+
+    // ---- clientId auto-format ----
+    document.getElementById("clientId").addEventListener("input", function(){
+        this.value = this.value.toLowerCase().replace(/[^a-z0-9-_]/g, "");
+    });
+    document.getElementById("companyName").addEventListener("input", function(){
+        var idField = document.getElementById("clientId");
+        if (!idField.dataset.touched) {
+            idField.value = this.value.toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
+        }
+    });
+    document.getElementById("clientId").addEventListener("keydown", function(){
+        this.dataset.touched = "1";
+    });
+
+    // ---- Dynamic lists ----
+    function addDynamicItem(listId, placeholder) {
+        var list = document.getElementById(listId);
+        var row = document.createElement("div");
+        row.className = "dynamic-item";
+        row.innerHTML = '<input type="text" placeholder="'+placeholder+'">'
+            + '<button class="btn-remove" title="Supprimer">×</button>';
+        row.querySelector(".btn-remove").addEventListener("click", function(){ row.remove(); });
+        list.appendChild(row);
+        row.querySelector("input").focus();
+    }
+
+    function getDynamicValues(listId) {
+        return Array.from(document.getElementById(listId).querySelectorAll("input"))
+            .map(function(i){ return i.value.trim(); }).filter(Boolean);
+    }
+
+    document.getElementById("btn-add-strength").addEventListener("click", function(){ addDynamicItem("strengths-list", "Ex: Rapidité d'exécution, Prix transparents..."); });
+    document.getElementById("btn-add-question").addEventListener("click", function(){ addDynamicItem("questions-list", "Ex: Quel est votre budget ?"); });
+    document.getElementById("btn-add-restriction").addEventListener("click", function(){ addDynamicItem("restrictions-list", "Ex: Ne jamais promettre un délai précis"); });
+
+    // ---- Services ----
+    var serviceCount = 0;
+    function addService() {
+        serviceCount++;
+        var n = serviceCount;
+        var block = document.createElement("div");
+        block.className = "service-block";
+        block.innerHTML = '<button class="btn-remove-service">Supprimer</button>'
+            + '<div class="form-grid" style="grid-template-columns:1fr 1fr;">'
+            + '<div class="form-group"><label>Nom du service</label><input type="text" class="svc-name" placeholder="Vidange complète"></div>'
+            + '<div class="form-group"><label>Prix</label><input type="text" class="svc-price" placeholder="49€"></div>'
+            + '<div class="form-group span2"><label>Description</label><input type="text" class="svc-desc" placeholder="Vidange + filtre à huile inclus"></div>'
+            + '</div>';
+        block.querySelector(".btn-remove-service").addEventListener("click", function(){ block.remove(); });
+        document.getElementById("services-list").appendChild(block);
+    }
+    document.getElementById("btn-add-service").addEventListener("click", addService);
+
+    function getServices() {
+        return Array.from(document.getElementById("services-list").querySelectorAll(".service-block")).map(function(b){
+            return {
+                name: b.querySelector(".svc-name").value.trim(),
+                price: b.querySelector(".svc-price").value.trim(),
+                description: b.querySelector(".svc-desc").value.trim()
+            };
+        }).filter(function(s){ return s.name; });
+    }
+
+    // ---- Submit ----
+    document.getElementById("btn-submit").addEventListener("click", function(){
+        var adminKey = document.getElementById("admin-key-input").value.trim();
+        var clientId = document.getElementById("clientId").value.trim();
+        var companyName = document.getElementById("companyName").value.trim();
+
+        var statusEl = document.getElementById("submit-status");
+        var authStatus = document.getElementById("auth-status");
+
+        if (!adminKey) { authStatus.textContent = "⚠ Clé admin requise"; authStatus.className = "status err"; return; }
+        if (!clientId) { statusEl.textContent = "⚠ L'ID client est requis"; return; }
+        if (!companyName) { statusEl.textContent = "⚠ Le nom de l'entreprise est requis"; return; }
+
+        var btn = document.getElementById("btn-submit");
+        btn.disabled = true;
+        btn.textContent = "Création en cours...";
+        statusEl.textContent = "";
+
+        var config = {
+            companyName: companyName,
+            companyDescription: document.getElementById("companyDescription").value.trim(),
+            email: document.getElementById("email").value.trim(),
+            phone: document.getElementById("phone").value.trim(),
+            location: document.getElementById("location").value.trim(),
+            hours: document.getElementById("hours").value.trim(),
+            website: document.getElementById("website").value.trim(),
+            services: getServices(),
+            botPersonality: {
+                tone: document.getElementById("tone").value.trim(),
+                language: "français",
+                responseLength: document.getElementById("responseLength").value.trim(),
+                callToAction: document.getElementById("callToAction").value.trim(),
+                strengths: getDynamicValues("strengths-list"),
+                qualifyingQuestions: getDynamicValues("questions-list"),
+                restrictions: getDynamicValues("restrictions-list")
+            },
+            chatbot: {
+                name: document.getElementById("botName").value.trim() || "Assistant",
+                color: colorHex.value || "#7c6fff",
+                welcome: document.getElementById("botWelcome").value.trim(),
+                placeholder: document.getElementById("botPlaceholder").value.trim(),
+                position: document.getElementById("botPosition").value,
+                leadDelay: parseInt(document.getElementById("leadDelay").value) || 3
+            }
+        };
+
+        fetch(SERVER + "/api/admin/clients?key=" + encodeURIComponent(adminKey), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientId: clientId, config: config })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            btn.disabled = false;
+            btn.textContent = "Créer le client →";
+
+            if (data.ok) {
+                authStatus.textContent = "✓ Connecté";
+                authStatus.className = "status ok";
+
+                // Show result
+                document.getElementById("form-wrap").style.display = "none";
+                var resultBox = document.getElementById("result-box");
+                resultBox.classList.add("show");
+                document.getElementById("result-sub").textContent = "Client « " + companyName + " » ("+data.clientId+") créé avec succès !";
+                document.getElementById("result-snippet").textContent = data.snippet;
+                document.getElementById("link-dashboard").href = "/dashboard?clientId=" + encodeURIComponent(data.clientId);
+            } else {
+                if (data.error === "Accès refusé.") {
+                    authStatus.textContent = "✗ Clé invalide";
+                    authStatus.className = "status err";
+                } else {
+                    statusEl.textContent = "Erreur : " + (data.error || "inconnue");
+                }
+            }
+        })
+        .catch(function(err){
+            btn.disabled = false;
+            btn.textContent = "Créer le client →";
+            statusEl.textContent = "Erreur réseau. Vérifiez votre connexion.";
+        });
+    });
+
+    // ---- Copy snippet ----
+    document.getElementById("btn-copy-snippet").addEventListener("click", function(){
+        var snippet = document.getElementById("result-snippet").textContent;
+        navigator.clipboard.writeText(snippet).then(function(){
+            var btn = document.getElementById("btn-copy-snippet");
+            btn.textContent = "✓ Copié dans le presse-papiers !";
+            setTimeout(function(){ btn.textContent = "Copier le snippet"; }, 2500);
+        }).catch(function(){
+            var el = document.getElementById("result-snippet");
+            var range = document.createRange();
+            range.selectNode(el);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+        });
+    });
+
+    // ---- New client ----
+    document.getElementById("btn-new").addEventListener("click", function(){
+        document.getElementById("result-box").classList.remove("show");
+        document.getElementById("form-wrap").style.display = "block";
+        document.getElementById("clientId").value = "";
+        document.getElementById("clientId").dataset.touched = "";
+        document.getElementById("companyName").value = "";
+        window.scrollTo(0,0);
+    });
+
+    // ---- Auth key check on blur ----
+    document.getElementById("admin-key-input").addEventListener("blur", function(){
+        var key = this.value.trim();
+        var status = document.getElementById("auth-status");
+        if (!key) { status.textContent = ""; return; }
+        fetch(SERVER + "/api/admin/clients?key=" + encodeURIComponent(key))
+            .then(function(r){
+                if (r.ok) { status.textContent = "✓ Connecté"; status.className = "status ok"; }
+                else { status.textContent = "✗ Clé invalide"; status.className = "status err"; }
+            }).catch(function(){ status.textContent = "Erreur réseau"; status.className = "status err"; });
+    });
+
+})();
+</script>
+</body>
+</html>

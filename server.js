@@ -179,6 +179,7 @@ app.get("/api/stream", (req, res) => {
 // PAGES
 // ============================================================
 app.get("/dashboard", (req, res) => res.sendFile(path.join(__dirname, "public", "dashboard.html")));
+app.get("/new-client", (req, res) => res.sendFile(path.join(__dirname, "public", "new-client.html")));
 app.get("/embed", (req, res) => res.sendFile(path.join(__dirname, "public", "embed-example.html")));
 
 // ============================================================
