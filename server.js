@@ -190,7 +190,13 @@ setInterval(() => {
 // ============================================================
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
 app.get("/dashboard", (req, res) => res.sendFile(path.join(__dirname, "public", "dashboard.html")));
-app.get("/new-client", (req, res) => res.sendFile(path.join(__dirname, "public", "new-client.html")));
+app.get("/new-client", (req, res) => {
+    const standard = path.join(__dirname, "public", "new-client.html");
+    const legacy = path.join(__dirname, "public", "new Client.html");
+    if (fs.existsSync(standard)) return res.sendFile(standard);
+    if (fs.existsSync(legacy)) return res.sendFile(legacy);
+    return res.status(404).send("Page introuvable");
+});
 app.get("/embed", (req, res) => res.sendFile(path.join(__dirname, "public", "embed-example.html")));
 
 // ============================================================
@@ -231,8 +237,16 @@ app.post("/api/admin/clients", (req, res) => {
     if (!cleanId) return res.status(400).json({ error: "clientId invalide." });
     const clients = loadClients();
     const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
+    const existingKeys = new Set(Object.values(clients).map(c => c?.clientKey).filter(Boolean));
+    function generateClientKey() {
+        let key = "";
+        do {
+            key = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+        } while (existingKeys.has(key));
+        return key;
+    }
     // Générer une clé unique pour ce client (on la garde si elle existe déjà)
-    const clientKey = clients[cleanId]?.clientKey || Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+    const clientKey = clients[cleanId]?.clientKey || generateClientKey();
     clients[cleanId] = {
         ...config, clientId: cleanId, clientKey,
         updatedAt: new Date().toISOString(),

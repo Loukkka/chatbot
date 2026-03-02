@@ -597,7 +597,7 @@ input[type=color] {
                 resultBox.classList.add("show");
                 document.getElementById("result-sub").textContent = "Client « " + companyName + " » ("+data.clientId+") créé avec succès !";
                 document.getElementById("result-snippet").textContent = data.snippet;
-                document.getElementById("link-dashboard").href = "/dashboard?clientId=" + encodeURIComponent(data.clientId);
+                document.getElementById("link-dashboard").href = data.dashboardUrl || ("/dashboard?clientId=" + encodeURIComponent(data.clientId));
             } else {
                 if (data.error === "Accès refusé.") {
                     authStatus.textContent = "✗ Clé invalide";
