@@ -155,25 +155,35 @@ app.use((req, res, next) => {
 // SSE — temps réel par client
 // ============================================================
 const sseClients = new Map();
+const sseAdminAll = new Set(); // Admin subscribers qui veulent TOUS les events
 
 function broadcastSSE(clientId, type, payload) {
+    const data = `data: ${JSON.stringify({ type, payload, clientId, time: new Date().toISOString() })}\n\n`;
+    // Envoyer aux abonnés du client spécifique
     const set = sseClients.get(clientId);
-    if (!set) return;
-    const data = `data: ${JSON.stringify({ type, payload, time: new Date().toISOString() })}\n\n`;
-    for (const client of set) {
-        try { client.write(data); } catch { set.delete(client); }
+    if (set) {
+        for (const client of set) {
+            try { client.write(data); } catch { set.delete(client); }
+        }
+    }
+    // Envoyer aussi aux admins abonnés à "tous les clients"
+    for (const admin of sseAdminAll) {
+        try { admin.write(data); } catch { sseAdminAll.delete(admin); }
     }
 }
 
-app.get("/api/stream", (req, res) => {
-    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
-    const clientId = req.query.clientId || "default";
-    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
-    res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
-    if (!sseClients.has(clientId)) sseClients.set(clientId, new Set());
-    sseClients.get(clientId).add(res);
-    req.on("close", () => sseClients.get(clientId)?.delete(res));
-});
+// Heartbeat SSE toutes les 30s pour éviter les déconnexions
+setInterval(() => {
+    const ping = `:keepalive\n\n`;
+    for (const [, set] of sseClients) {
+        for (const client of set) {
+            try { client.write(ping); } catch { set.delete(client); }
+        }
+    }
+    for (const admin of sseAdminAll) {
+        try { admin.write(ping); } catch { sseAdminAll.delete(admin); }
+    }
+}, 30000);
 
 // ============================================================
 // PAGES
@@ -367,10 +377,27 @@ function isAuthorized(req, clientId) {
 }
 
 app.get("/api/leads", (req, res) => {
-    const clientId = req.query.clientId || "default";
-    if (!isAuthorized(req, clientId)) return res.status(403).json({ error: "Accès refusé." });
-    const leads = loadLeads(clientId);
-    res.json({ total: leads.length, leads });
+    const key = req.query.key;
+    const clientId = req.query.clientId || "";
+    const isAdmin = key === ADMIN_KEY;
+
+    if (!isAdmin && !clientId) return res.status(400).json({ error: "clientId requis." });
+    if (!isAuthorized(req, clientId || "__admin__")) return res.status(403).json({ error: "Accès refusé." });
+
+    if (isAdmin && !clientId) {
+        // Admin sans filtre → agréger les leads de TOUS les clients
+        const clients = loadClients();
+        let allLeads = [];
+        for (const id of Object.keys(clients)) {
+            const cl = loadLeads(id);
+            allLeads = allLeads.concat(cl.map(l => ({ ...l, clientId: id })));
+        }
+        allLeads.sort((a, b) => (b.id || 0) - (a.id || 0));
+        res.json({ total: allLeads.length, leads: allLeads });
+    } else {
+        const leads = loadLeads(clientId);
+        res.json({ total: leads.length, leads });
+    }
 });
 
 // ============================================================
@@ -396,19 +423,36 @@ app.post("/api/analytics", (req, res) => {
 });
 
 app.get("/api/analytics", (req, res) => {
-    const clientId = req.query.clientId || "default";
-    if (!isAuthorized(req, clientId)) return res.status(403).json({ error: "Accès refusé." });
-    const analytics = loadAnalytics(clientId);
+    const key = req.query.key;
+    const clientId = req.query.clientId || "";
+    const isAdmin = key === ADMIN_KEY;
+
+    if (!isAdmin && !clientId) return res.status(400).json({ error: "clientId requis." });
+    if (!isAuthorized(req, clientId || "__admin__")) return res.status(403).json({ error: "Accès refusé." });
+
+    // Charger les events : soit d'un client, soit de tous
+    let allEvents = [];
+    if (isAdmin && !clientId) {
+        const clients = loadClients();
+        for (const id of Object.keys(clients)) {
+            const a = loadAnalytics(id);
+            allEvents = allEvents.concat(a.events.map(ev => ({ ...ev, clientId: id })));
+        }
+        allEvents.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    } else {
+        const analytics = loadAnalytics(clientId);
+        allEvents = analytics.events;
+    }
 
     const sessionsWithMsg = new Set(), sessionsWithLead = new Set();
     let opens = 0, leads = 0, abandonments = 0;
 
-    for (const ev of analytics.events) {
+    for (const ev of allEvents) {
         if (ev.event === "open") opens++;
         if (ev.event === "user_message") sessionsWithMsg.add(ev.sessionId);
         if (ev.event === "lead_captured") { leads++; sessionsWithLead.add(ev.sessionId); }
     }
-    for (const ev of analytics.events) {
+    for (const ev of allEvents) {
         if (ev.event === "close" && ev.data?.messages > 2 && !sessionsWithLead.has(ev.sessionId))
             abandonments++;
     }
@@ -420,19 +464,37 @@ app.get("/api/analytics", (req, res) => {
             conversionRate: conversations > 0 ? ((leads / conversations) * 100).toFixed(1) + "%" : "0%",
             abandonRate: conversations > 0 ? ((abandonments / conversations) * 100).toFixed(1) + "%" : "0%"
         },
-        recentEvents: analytics.events.slice(-100)
+        recentEvents: allEvents.slice(-100)
     });
 });
 
-// SSE — accepte aussi la clientKey
+// SSE — accepte adminKey ou clientKey
 app.get("/api/stream", (req, res) => {
-    const clientId = req.query.clientId || "default";
-    if (!isAuthorized(req, clientId)) return res.status(403).json({ error: "Accès refusé." });
+    const key = req.query.key;
+    const clientId = req.query.clientId || "";
+    const isAdmin = key === ADMIN_KEY;
+
+    // Vérifier l'authentification
+    if (!isAdmin) {
+        if (!clientId) return res.status(400).json({ error: "clientId requis." });
+        const client = getClient(clientId);
+        if (!client || client.clientKey !== key) return res.status(403).json({ error: "Accès refusé." });
+    }
+
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
-    res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
-    if (!sseClients.has(clientId)) sseClients.set(clientId, new Set());
-    sseClients.get(clientId).add(res);
-    req.on("close", () => sseClients.get(clientId)?.delete(res));
+    res.write(`data: ${JSON.stringify({ type: "connected", clientId: clientId || "__all__" })}\n\n`);
+
+    if (isAdmin && !clientId) {
+        // Admin sans clientId → reçoit TOUS les events de tous les clients
+        sseAdminAll.add(res);
+        req.on("close", () => sseAdminAll.delete(res));
+    } else {
+        // Client spécifique (ou admin filtré sur un client)
+        const id = clientId || "default";
+        if (!sseClients.has(id)) sseClients.set(id, new Set());
+        sseClients.get(id).add(res);
+        req.on("close", () => sseClients.get(id)?.delete(res));
+    }
 });
 
 // ============================================================
