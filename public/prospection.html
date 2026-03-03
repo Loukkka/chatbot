@@ -196,10 +196,10 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
         <!-- TAB: Search -->
         <div class="tab-content active" id="tab-search">
             <div class="info-box">
-                <span class="icon">💡</span>
+                <span class="icon"></span>
                 <div>
-                    <strong>Recherche + vérification :</strong> les résultats IA sont filtrés avec des contrôles techniques (format email, domaine DNS/MX, site web joignable).
-                    <strong>Vérifiez quand même</strong> les informations avant envoi. Vous pouvez aussi ajouter des prospects manuellement.
+                    <strong>Recherche + vérification :</strong> les emails sont filtrés avec des contrôles techniques stricts (format + domaine DNS/MX + exclusion des boîtes perso).
+                    <strong>Le site web est optionnel</strong> et peut être conservé mais met le que si il est vérifié sinon affiche rien.
                 </div>
             </div>
 
@@ -263,7 +263,7 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
                             <th style="width:30px;"></th>
                             <th>Entreprise</th>
                             <th>Email</th>
-                            <th>Site vérifié</th>
+                            <th>Site (optionnel)</th>
                             <th>Secteur</th>
                         </tr></thead>
                         <tbody id="results-tbody"></tbody>
@@ -307,7 +307,7 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
                             <th style="width:30px;"></th>
                             <th>Entreprise</th>
                             <th>Email</th>
-                            <th>Site vérifié</th>
+                            <th>Site (optionnel)</th>
                             <th>Secteur</th>
                             <th>Statut</th>
                             <th style="width:40px;"></th>

@@ -942,12 +942,13 @@ app.post("/api/admin/prospects/search", async (req, res) => {
 IMPORTANT : Ce doivent être de VRAIES entreprises qui existent réellement en France. Utilise tes connaissances pour trouver des entreprises réelles.
 
 Retourne UNIQUEMENT un tableau JSON valide (sans markdown, sans backticks, sans texte avant/après) avec ce format exact:
-[{"companyName":"Nom","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
+[{"companyName":"Nom","email":"contact@domaine.fr","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
 
 Règles:
 - Uniquement des entreprises qui existent RÉELLEMENT en France
 - Noms d'entreprises RÉELS et vérifiables
-- Website obligatoire et le plus exact possible
+- Email professionnel 
+- Website optionnel
 - Sous-secteurs diversifiés dans "${cleanSector}"
 - ${cleanCount} résultats exactement
 - Interdit d'inventer des entreprises fictives ou des placeholders`;
@@ -970,27 +971,39 @@ Règles:
 
         const validated = await Promise.all((Array.isArray(prospects) ? prospects : []).map(async (p, i) => {
             const companyName = sanitizeText(p.companyName, 200);
+            const aiEmail = sanitizeText(p.email, 254).toLowerCase();
             const websiteInput = sanitizeText(p.website, 500);
             const sectorValue = sanitizeText(p.sector, 100);
             const descriptionValue = sanitizeText(p.description, 500);
 
-            if (!companyName || !websiteInput) return null;
+            if (!companyName) return null;
 
-            const verifiedWebsite = await getVerifiedWebsite(websiteInput);
-            if (!verifiedWebsite) return null;
-            if (!websiteMatchesCompany(verifiedWebsite, companyName)) return null;
+            const normalizedWebsite = normalizeWebsite(websiteInput);
+            const safeWebsite = (normalizedWebsite && isValidUrl(normalizedWebsite)) ? normalizedWebsite : "";
+            const verifiedWebsite = safeWebsite ? await getVerifiedWebsite(safeWebsite) : "";
 
-            const scrapedEmail = await scrapeEmailFromWebsite(verifiedWebsite);
-            if (!scrapedEmail || !isValidEmail(scrapedEmail)) return null;
-            const domain = getEmailDomain(scrapedEmail);
+            let finalEmail = "";
+            if (verifiedWebsite && websiteMatchesCompany(verifiedWebsite, companyName)) {
+                finalEmail = await scrapeEmailFromWebsite(verifiedWebsite);
+            }
+
+            if (!finalEmail && isValidEmail(aiEmail)) {
+                const aiDomain = getEmailDomain(aiEmail);
+                if (aiDomain && !isFreeMailboxDomain(aiDomain) && await hasEmailDomainRecords(aiDomain)) {
+                    finalEmail = aiEmail;
+                }
+            }
+
+            if (!finalEmail || !isValidEmail(finalEmail)) return null;
+            const domain = getEmailDomain(finalEmail);
             if (!domain || isFreeMailboxDomain(domain)) return null;
             if (!(await hasEmailDomainRecords(domain))) return null;
 
             return {
                 id: Date.now() + i,
                 companyName,
-                email: scrapedEmail,
-                website: verifiedWebsite,
+                email: finalEmail,
+                website: verifiedWebsite || safeWebsite,
                 sector: sectorValue,
                 description: descriptionValue,
                 status: "pending",
@@ -1025,14 +1038,16 @@ app.post("/api/admin/prospects", async (req, res) => {
         const domain = getEmailDomain(email);
         if (!domain || isFreeMailboxDomain(domain)) { skipped++; continue; }
         if (!(await hasEmailDomainRecords(domain))) { skipped++; continue; }
-        const verifiedWebsite = await getVerifiedWebsite(sanitizeText(p.website, 500));
-        if (!verifiedWebsite) { skipped++; continue; }
-        if (!isEmailDomainCompatibleWithWebsite(email, verifiedWebsite)) { skipped++; continue; }
-        if (!websiteMatchesCompany(verifiedWebsite, sanitizeText(p.companyName, 200))) { skipped++; continue; }
+        const websiteInput = sanitizeText(p.website, 500);
+        const normalizedWebsite = normalizeWebsite(websiteInput);
+        let website = "";
+        if (normalizedWebsite && isValidUrl(normalizedWebsite)) {
+            website = (await getVerifiedWebsite(normalizedWebsite)) || normalizedWebsite;
+        }
         existing.push({
             id: p.id || Date.now() + added,
             companyName: sanitizeText(p.companyName, 200), email,
-            website: verifiedWebsite, sector: sanitizeText(p.sector, 100),
+            website, sector: sanitizeText(p.sector, 100),
             description: sanitizeText(p.description, 500),
             status: "pending", source: p.source || "manual",
             unsubToken: p.unsubToken || generateToken(),
