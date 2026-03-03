@@ -512,6 +512,343 @@ app.get("/api/stream", (req, res) => {
 });
 
 // ============================================================
+// PROSPECTION MODULE
+// ============================================================
+const crypto = require("crypto");
+const PROSPECTS_FILE = path.join(DATA_DIR, "prospects.json");
+const EMAIL_HISTORY_FILE = path.join(DATA_DIR, "email_history.json");
+const UNSUBSCRIBED_FILE = path.join(DATA_DIR, "unsubscribed.json");
+
+function loadProspects() {
+    try { if (fs.existsSync(PROSPECTS_FILE)) return JSON.parse(fs.readFileSync(PROSPECTS_FILE, "utf-8")); } catch (e) {}
+    return [];
+}
+function saveProspects(p) { fs.writeFileSync(PROSPECTS_FILE, JSON.stringify(p, null, 2), "utf-8"); }
+function loadEmailHistory() {
+    try { if (fs.existsSync(EMAIL_HISTORY_FILE)) return JSON.parse(fs.readFileSync(EMAIL_HISTORY_FILE, "utf-8")); } catch (e) {}
+    return [];
+}
+function saveEmailHistory(h) { fs.writeFileSync(EMAIL_HISTORY_FILE, JSON.stringify(h, null, 2), "utf-8"); }
+function loadUnsubscribed() {
+    try { if (fs.existsSync(UNSUBSCRIBED_FILE)) return JSON.parse(fs.readFileSync(UNSUBSCRIBED_FILE, "utf-8")); } catch (e) {}
+    return [];
+}
+function saveUnsubscribed(u) { fs.writeFileSync(UNSUBSCRIBED_FILE, JSON.stringify(u, null, 2), "utf-8"); }
+function generateToken() { return crypto.randomBytes(16).toString("hex"); }
+
+// --- Email transporter (lazy) ---
+let emailTransporter = null;
+function getEmailTransporter() {
+    if (emailTransporter) return emailTransporter;
+    const nodemailer = require("nodemailer");
+    emailTransporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_PORT === "465",
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    });
+    return emailTransporter;
+}
+
+function buildProspectionEmailHTML(prospect) {
+    const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
+    const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
+    const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "";
+    const unsubUrl = `${SERVER_URL}/unsubscribe?email=${encodeURIComponent(prospect.email)}&token=${encodeURIComponent(prospect.unsubToken || "")}`;
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:40px 20px;"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<tr><td style="background:linear-gradient(135deg,#4B6BFB,#7c3aed);padding:32px 40px;text-align:center;">
+<h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">🤖 Chatbot IA pour ${prospect.companyName}</h1>
+<p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Automatisez votre service client et générez plus de leads</p>
+</td></tr>
+<tr><td style="padding:36px 40px;">
+<p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.6;">Bonjour <strong>${prospect.companyName}</strong>,</p>
+<p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.7;">Je me permets de vous contacter car je développe des <strong>chatbots IA sur mesure</strong> pour les entreprises comme la vôtre. Notre solution s'installe en 2 minutes sur n'importe quel site web.</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9ff;border-radius:8px;margin:20px 0;">
+<tr><td style="padding:24px;">
+<p style="margin:0 0 12px;color:#4B6BFB;font-size:14px;font-weight:700;">💡 Les bénéfices pour ${prospect.companyName} :</p>
+<ul style="margin:0;padding:0 0 0 18px;color:#555;font-size:13px;line-height:2;">
+<li>Réponses automatiques 24h/24 aux questions de vos visiteurs</li>
+<li>Qualification automatique de vos prospects</li>
+<li>Capture de leads qualifiés même hors horaires</li>
+<li>Chatbot personnalisé à votre image et vos services</li>
+<li>Dashboard en temps réel pour suivre vos performances</li>
+</ul></td></tr></table>
+<p style="margin:20px 0;color:#555;font-size:14px;line-height:1.7;">Nos clients constatent en moyenne une <strong>augmentation significative des demandes de contact</strong> grâce à l'engagement automatique du chatbot.</p>
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:20px 0;">
+<a href="mailto:${fromEmail}?subject=D%C3%A9monstration%20Chatbot%20IA%20-%20${encodeURIComponent(prospect.companyName)}" style="display:inline-block;background:linear-gradient(135deg,#4B6BFB,#7c3aed);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;">🎁 Demander une démonstration gratuite</a>
+</td></tr></table>
+<p style="margin:16px 0 0;color:#555;font-size:14px;line-height:1.7;">N'hésitez pas à répondre directement à cet email pour toute question.</p>
+<p style="margin:24px 0 0;color:#333;font-size:14px;">Cordialement,<br/><strong>${fromName}</strong></p>
+</td></tr>
+<tr><td style="background:#f8f9fa;padding:20px 40px;border-top:1px solid #eee;">
+<p style="margin:0;color:#999;font-size:11px;line-height:1.6;text-align:center;">
+Cet email a été envoyé à ${prospect.email} car votre adresse email professionnelle est publiquement disponible.<br/>
+Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données.<br/>
+<a href="${unsubUrl}" style="color:#4B6BFB;text-decoration:underline;">Se désinscrire / Ne plus recevoir d'emails</a>
+</p></td></tr>
+</table></td></tr></table></body></html>`;
+}
+
+// --- Sending queue ---
+let sendingInProgress = false;
+let sendingQueue = [];
+let sendingStats = { total: 0, sent: 0, errors: 0, current: "" };
+
+async function processSendingQueue() {
+    if (sendingInProgress) return;
+    sendingInProgress = true;
+    const DELAY_MS = parseInt(process.env.EMAIL_DELAY_MS) || 30000;
+    const history = loadEmailHistory();
+    const unsubscribed = loadUnsubscribed().map(u => u.email.toLowerCase());
+
+    for (let i = 0; i < sendingQueue.length; i++) {
+        const prospect = sendingQueue[i];
+        sendingStats.current = prospect.companyName;
+
+        if (unsubscribed.includes(prospect.email.toLowerCase())) {
+            history.push({ id: Date.now(), prospectId: prospect.id, companyName: prospect.companyName, email: prospect.email, status: "skipped", reason: "Désabonné", sentAt: new Date().toISOString() });
+            sendingStats.sent++;
+            saveEmailHistory(history);
+            continue;
+        }
+
+        const recentlySent = history.some(h => h.email === prospect.email && h.status === "sent" && (Date.now() - new Date(h.sentAt).getTime()) < 30 * 86400000);
+        if (recentlySent) {
+            history.push({ id: Date.now(), prospectId: prospect.id, companyName: prospect.companyName, email: prospect.email, status: "skipped", reason: "Déjà contacté (<30j)", sentAt: new Date().toISOString() });
+            sendingStats.sent++;
+            saveEmailHistory(history);
+            continue;
+        }
+
+        try {
+            const transporter = getEmailTransporter();
+            const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
+            const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+            await transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to: prospect.email,
+                subject: `${prospect.companyName} — Boostez votre service client avec l'IA`,
+                html: buildProspectionEmailHTML(prospect),
+                headers: { "List-Unsubscribe": `<${process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com"}/unsubscribe?email=${encodeURIComponent(prospect.email)}&token=${encodeURIComponent(prospect.unsubToken || "")}>` }
+            });
+            history.push({ id: Date.now(), prospectId: prospect.id, companyName: prospect.companyName, email: prospect.email, website: prospect.website || "", status: "sent", sentAt: new Date().toISOString() });
+            sendingStats.sent++;
+
+            const prospects = loadProspects();
+            const p = prospects.find(pp => pp.id === prospect.id);
+            if (p) { p.status = "sent"; p.sentAt = new Date().toISOString(); }
+            saveProspects(prospects);
+            console.log(`📧 Email envoyé à ${prospect.email} (${prospect.companyName})`);
+        } catch (err) {
+            console.error(`❌ Erreur envoi à ${prospect.email}:`, err.message);
+            history.push({ id: Date.now(), prospectId: prospect.id, companyName: prospect.companyName, email: prospect.email, status: "error", error: err.message, sentAt: new Date().toISOString() });
+            sendingStats.errors++;
+            const prospects = loadProspects();
+            const p = prospects.find(pp => pp.id === prospect.id);
+            if (p) { p.status = "error"; p.errorMessage = err.message; }
+            saveProspects(prospects);
+        }
+        saveEmailHistory(history);
+        if (i < sendingQueue.length - 1) await new Promise(r => setTimeout(r, DELAY_MS));
+    }
+    sendingQueue = [];
+    sendingInProgress = false;
+    sendingStats.current = "";
+}
+
+// --- Prospection Page ---
+app.get("/prospection", (req, res) => res.sendFile(path.join(__dirname, "public", "prospection.html")));
+
+// --- List prospects ---
+app.get("/api/admin/prospects", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    res.json({ total: loadProspects().length, prospects: loadProspects() });
+});
+
+// --- AI Search ---
+app.post("/api/admin/prospects/search", async (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    if (!API_KEY) return res.status(500).json({ error: "Clé API OpenRouter non configurée." });
+
+    const { sector, location, count } = req.body;
+    const cleanSector = sanitizeText(sector, 100);
+    const cleanLocation = sanitizeText(location, 100);
+    const cleanCount = Math.min(Math.max(parseInt(count) || 5, 1), 100);
+    if (!cleanSector) return res.status(400).json({ error: "Secteur requis." });
+
+    const prompt = `Génère une liste de ${cleanCount} entreprises françaises réalistes dans le secteur "${cleanSector}"${cleanLocation ? ` situées à/en ${cleanLocation}` : ""}.
+Ce sont des suggestions de profils type pour de la prospection B2B.
+
+Retourne UNIQUEMENT un tableau JSON valide (sans markdown, sans backticks, sans texte avant/après) avec ce format exact:
+[{"companyName":"Nom","email":"contact@domaine.fr","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte"}]
+
+Règles:
+- Noms crédibles et variés
+- Emails au format contact@ ou info@ avec domaines cohérents avec le nom
+- Sites web plausibles
+- Sous-secteurs diversifiés dans "${cleanSector}"
+- ${cleanCount} résultats exactement`;
+
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+            body: JSON.stringify({ model: "google/gemini-2.0-flash-lite-001", messages: [{ role: "user", content: prompt }], temperature: 0.9, max_tokens: 4096 })
+        });
+        const data = await response.json();
+        if (!response.ok) return res.status(500).json({ error: data.error?.message || "Erreur API" });
+
+        const content = data.choices?.[0]?.message?.content || "[]";
+        let prospects;
+        try {
+            const jsonMatch = content.match(/\[[\s\S]*\]/);
+            prospects = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+        } catch (e) { return res.status(500).json({ error: "Erreur parsing réponse IA.", raw: content }); }
+
+        const enriched = prospects.map((p, i) => ({
+            id: Date.now() + i,
+            companyName: sanitizeText(p.companyName, 200),
+            email: sanitizeText(p.email, 254).toLowerCase(),
+            website: sanitizeText(p.website, 500),
+            sector: sanitizeText(p.sector, 100),
+            description: sanitizeText(p.description, 500),
+            status: "pending",
+            source: "ai_search",
+            unsubToken: generateToken(),
+            createdAt: new Date().toISOString()
+        }));
+        res.json({ total: enriched.length, prospects: enriched });
+    } catch (err) {
+        console.error("Erreur recherche IA:", err);
+        res.status(500).json({ error: "Erreur de connexion au service IA." });
+    }
+});
+
+// --- Save prospects (batch) ---
+app.post("/api/admin/prospects", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const { prospects: newProspects } = req.body;
+    if (!Array.isArray(newProspects) || !newProspects.length) return res.status(400).json({ error: "Liste de prospects requise." });
+
+    const existing = loadProspects();
+    const unsubscribed = loadUnsubscribed().map(u => u.email.toLowerCase());
+    const existingEmails = new Set(existing.map(p => p.email.toLowerCase()));
+    let added = 0, skipped = 0;
+
+    for (const p of newProspects) {
+        const email = sanitizeText(p.email, 254).toLowerCase();
+        if (!isValidEmail(email) || existingEmails.has(email) || unsubscribed.includes(email)) { skipped++; continue; }
+        existing.push({
+            id: p.id || Date.now() + added,
+            companyName: sanitizeText(p.companyName, 200), email,
+            website: sanitizeText(p.website, 500), sector: sanitizeText(p.sector, 100),
+            description: sanitizeText(p.description, 500),
+            status: "pending", source: p.source || "manual",
+            unsubToken: p.unsubToken || generateToken(),
+            createdAt: p.createdAt || new Date().toISOString()
+        });
+        existingEmails.add(email);
+        added++;
+    }
+    saveProspects(existing);
+    res.json({ ok: true, added, skipped, total: existing.length });
+});
+
+// --- Delete prospect ---
+app.delete("/api/admin/prospects/:id", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const prospects = loadProspects();
+    saveProspects(prospects.filter(p => p.id !== parseInt(req.params.id)));
+    res.json({ ok: true });
+});
+
+// --- Clear all prospects ---
+app.delete("/api/admin/prospects", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    saveProspects([]);
+    res.json({ ok: true });
+});
+
+// --- Send emails ---
+app.post("/api/admin/prospects/send", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return res.status(400).json({ error: "Configuration SMTP manquante. Ajoutez SMTP_HOST, SMTP_USER, SMTP_PASS dans .env" });
+
+    const { prospectIds } = req.body;
+    if (!Array.isArray(prospectIds) || !prospectIds.length) return res.status(400).json({ error: "Sélectionnez des prospects." });
+    if (sendingInProgress) return res.status(409).json({ error: "Envoi déjà en cours. Veuillez patienter." });
+
+    const prospects = loadProspects();
+    const toSend = prospects.filter(p => prospectIds.includes(p.id) && p.status !== "sent");
+    if (!toSend.length) return res.status(400).json({ error: "Aucun prospect valide à contacter." });
+
+    for (const p of toSend) { const f = prospects.find(pp => pp.id === p.id); if (f) f.status = "sending"; }
+    saveProspects(prospects);
+
+    sendingQueue = toSend;
+    sendingStats = { total: toSend.length, sent: 0, errors: 0, current: "" };
+    processSendingQueue();
+    res.json({ ok: true, queued: toSend.length });
+});
+
+// --- Sending status ---
+app.get("/api/admin/prospects/sending-status", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    res.json({ inProgress: sendingInProgress, ...sendingStats, remaining: sendingStats.total - sendingStats.sent - sendingStats.errors });
+});
+
+// --- Email history ---
+app.get("/api/admin/prospects/history", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const history = loadEmailHistory().sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+    res.json({ total: history.length, history });
+});
+
+// --- Unsubscribe page ---
+app.get("/unsubscribe", (req, res) => {
+    const { email, token } = req.query;
+    res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Désinscription</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#f4f4f7;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:12px;padding:40px;max-width:440px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+h1{font-size:22px;margin-bottom:12px;color:#333}.desc{color:#666;font-size:14px;line-height:1.6;margin-bottom:24px}
+button{background:linear-gradient(135deg,#f87171,#dc2626);color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+button:hover{opacity:.9}.success{color:#16a34a;font-weight:600;font-size:15px}.error{color:#dc2626;font-size:14px}
+</style></head><body><div class="card"><h1>📧 Désinscription</h1>
+<p class="desc">Vous souhaitez ne plus recevoir nos emails ?<br/>Cliquez sur le bouton ci-dessous pour confirmer.</p>
+<div id="msg"></div>
+<button id="btn" onclick="unsub()">Confirmer la désinscription</button>
+</div><script>
+async function unsub(){
+    document.getElementById("btn").disabled=true;document.getElementById("btn").textContent="Traitement...";
+    try{const r=await fetch("/api/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({email:"${(email || "").replace(/"/g, "")}",token:"${(token || "").replace(/"/g, "")}"})});
+    const d=await r.json();if(r.ok){document.getElementById("msg").innerHTML='<p class="success">✅ '+d.message+'</p>';document.getElementById("btn").style.display="none";}
+    else{document.getElementById("msg").innerHTML='<p class="error">❌ '+d.error+'</p>';document.getElementById("btn").disabled=false;document.getElementById("btn").textContent="Réessayer";}}
+    catch(e){document.getElementById("msg").innerHTML='<p class="error">Erreur de connexion.</p>';document.getElementById("btn").disabled=false;}}
+</script></body></html>`);
+});
+
+app.post("/api/unsubscribe", (req, res) => {
+    const { email, token } = req.body;
+    if (!email || !token) return res.status(400).json({ error: "Paramètres manquants." });
+    const prospects = loadProspects();
+    const prospect = prospects.find(p => p.email.toLowerCase() === email.toLowerCase() && p.unsubToken === token);
+    if (!prospect) return res.status(400).json({ error: "Lien de désinscription invalide." });
+
+    const unsubscribed = loadUnsubscribed();
+    if (!unsubscribed.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+        unsubscribed.push({ email: email.toLowerCase(), unsubscribedAt: new Date().toISOString() });
+        saveUnsubscribed(unsubscribed);
+    }
+    res.json({ ok: true, message: "Vous avez été désabonné avec succès. Vous ne recevrez plus d'emails de notre part." });
+});
+
+// ============================================================
 // START
 // ============================================================
 app.listen(PORT, () => {
@@ -519,5 +856,7 @@ app.listen(PORT, () => {
     console.log(`🔐 Admin : http://localhost:${PORT}/admin`);
     console.log(`📊 Dashboard client : http://localhost:${PORT}/dashboard?clientId=XXX&key=YYY`);
     console.log(`➕ Créer client : http://localhost:${PORT}/new-client`);
+    console.log(`📧 Prospection : http://localhost:${PORT}/prospection`);
     if (!API_KEY) console.warn("⚠️  OPENROUTER_API_KEY manquante dans .env");
+    if (!process.env.SMTP_USER) console.warn("⚠️  SMTP non configuré — prospection email désactivée");
 });
