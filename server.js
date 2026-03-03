@@ -647,43 +647,53 @@ async function sendEmail(to, subject, html) {
 
 function buildProspectionEmailHTML(prospect) {
     const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
-    const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
+    const fromName = process.env.SMTP_FROM_NAME || "Louka";
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "";
     const unsubUrl = `${SERVER_URL}/unsubscribe?email=${encodeURIComponent(prospect.email)}&token=${encodeURIComponent(prospect.unsubToken || "")}`;
+    const sector = prospect.sector || "votre secteur";
+
+    // Variations naturelles pour ne pas avoir le même email à chaque fois
+    const intros = [
+        `Je suis tombé sur ${prospect.companyName} en faisant des recherches dans le domaine ${sector} et j'ai trouvé votre activité vraiment intéressante.`,
+        `J'ai découvert ${prospect.companyName} récemment et votre positionnement dans ${sector} a retenu mon attention.`,
+        `En m'intéressant aux entreprises de ${sector}, je suis tombé sur ${prospect.companyName} et j'ai tout de suite vu un potentiel.`,
+    ];
+    const benefits = [
+        `L'idée c'est simple : un assistant intelligent intégré à votre site qui répond aux visiteurs en temps réel, même quand vous n'êtes pas disponible. Il connaît vos services, vos tarifs, et sait orienter les gens vers la bonne info.`,
+        `Concrètement, c'est un assistant IA sur votre site web qui discute avec vos visiteurs, répond à leurs questions sur vos services et récupère leurs coordonnées automatiquement — même à 23h un dimanche.`,
+        `Le principe : un chatbot personnalisé sur votre site qui engage la conversation avec vos visiteurs, répond à leurs questions et vous envoie les contacts intéressés. Tout ça tourne 24h/24.`,
+    ];
+    const closes = [
+        `Si ça vous parle, je serais ravi de vous faire une petite démo rapide (ça prend 10 min). Pas d'engagement, c'est juste pour vous montrer ce que ça donnerait sur votre site.`,
+        `Je peux vous préparer une démo personnalisée pour ${prospect.companyName} si ça vous intéresse — ça prend 10 minutes et c'est sans engagement.`,
+        `Seriez-vous dispo pour un appel rapide de 10 min cette semaine ? Je pourrais vous montrer à quoi ça ressemblerait sur votre site, aucune obligation.`,
+    ];
+
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:40px 20px;"><tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-<tr><td style="background:linear-gradient(135deg,#4B6BFB,#7c3aed);padding:32px 40px;text-align:center;">
-<h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">🤖 Chatbot IA pour ${prospect.companyName}</h1>
-<p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Automatisez votre service client et générez plus de leads</p>
-</td></tr>
-<tr><td style="padding:36px 40px;">
-<p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.6;">Bonjour <strong>${prospect.companyName}</strong>,</p>
-<p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.7;">Je me permets de vous contacter car je développe des <strong>chatbots IA sur mesure</strong> pour les entreprises comme la vôtre. Notre solution s'installe en 2 minutes sur n'importe quel site web.</p>
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9ff;border-radius:8px;margin:20px 0;">
-<tr><td style="padding:24px;">
-<p style="margin:0 0 12px;color:#4B6BFB;font-size:14px;font-weight:700;">💡 Les bénéfices pour ${prospect.companyName} :</p>
-<ul style="margin:0;padding:0 0 0 18px;color:#555;font-size:13px;line-height:2;">
-<li>Réponses automatiques 24h/24 aux questions de vos visiteurs</li>
-<li>Qualification automatique de vos prospects</li>
-<li>Capture de leads qualifiés même hors horaires</li>
-<li>Chatbot personnalisé à votre image et vos services</li>
-<li>Dashboard en temps réel pour suivre vos performances</li>
-</ul></td></tr></table>
-<p style="margin:20px 0;color:#555;font-size:14px;line-height:1.7;">Nos clients constatent en moyenne une <strong>augmentation significative des demandes de contact</strong> grâce à l'engagement automatique du chatbot.</p>
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:20px 0;">
-<a href="mailto:${fromEmail}?subject=D%C3%A9monstration%20Chatbot%20IA%20-%20${encodeURIComponent(prospect.companyName)}" style="display:inline-block;background:linear-gradient(135deg,#4B6BFB,#7c3aed);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;">🎁 Demander une démonstration gratuite</a>
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;"><tr><td style="padding:24px 20px;">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+<tr><td style="padding:0;">
+<p style="margin:0 0 20px;color:#222;font-size:15px;line-height:1.7;">Bonjour,</p>
+<p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.7;">${pick(intros)}</p>
+<p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.7;">Je travaille sur des chatbots IA pour les entreprises et je me suis dit que ça pourrait vraiment vous être utile.</p>
+<p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.7;">${pick(benefits)}</p>
+<p style="margin:0 0 16px;color:#333;font-size:15px;line-height:1.7;">Ce que mes clients apprécient le plus :</p>
+<p style="margin:0 0 6px;color:#333;font-size:15px;line-height:1.7;">→ Plus besoin de répondre 10 fois aux mêmes questions<br/>
+→ Des demandes de contact qui arrivent même la nuit<br/>
+→ Un assistant qui connaît parfaitement leur activité</p>
+<p style="margin:16px 0;color:#333;font-size:15px;line-height:1.7;">${pick(closes)}</p>
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:20px 0;">
+<a href="mailto:${fromEmail}?subject=Demo%20chatbot%20-%20${encodeURIComponent(prospect.companyName)}" style="display:inline-block;background:#4B6BFB;color:#fff;text-decoration:none;padding:13px 28px;border-radius:6px;font-size:14px;font-weight:600;">Oui, je veux voir une démo →</a>
 </td></tr></table>
-<p style="margin:16px 0 0;color:#555;font-size:14px;line-height:1.7;">N'hésitez pas à répondre directement à cet email pour toute question.</p>
-<p style="margin:24px 0 0;color:#333;font-size:14px;">Cordialement,<br/><strong>${fromName}</strong></p>
+<p style="margin:0 0 4px;color:#333;font-size:15px;line-height:1.7;">À bientôt,</p>
+<p style="margin:0;color:#333;font-size:15px;line-height:1.7;font-weight:600;">${fromName}</p>
 </td></tr>
-<tr><td style="background:#f8f9fa;padding:20px 40px;border-top:1px solid #eee;">
-<p style="margin:0;color:#999;font-size:11px;line-height:1.6;text-align:center;">
-Cet email a été envoyé à ${prospect.email} car votre adresse email professionnelle est publiquement disponible.<br/>
-Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données.<br/>
-<a href="${unsubUrl}" style="color:#4B6BFB;text-decoration:underline;">Se désinscrire / Ne plus recevoir d'emails</a>
+<tr><td style="padding:32px 0 0;border-top:1px solid #f0f0f0;">
+<p style="margin:0;color:#bbb;font-size:11px;line-height:1.5;">
+<a href="${unsubUrl}" style="color:#bbb;text-decoration:underline;">Se désinscrire</a>
 </p></td></tr>
 </table></td></tr></table></body></html>`;
 }
