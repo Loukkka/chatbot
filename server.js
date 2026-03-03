@@ -541,14 +541,18 @@ let emailTransporter = null;
 function getEmailTransporter() {
     if (emailTransporter) return emailTransporter;
     const nodemailer = require("nodemailer");
+    console.log("📧 Création transporteur SMTP:", process.env.SMTP_HOST || "smtp.gmail.com", "user:", process.env.SMTP_USER || "NON DÉFINI");
     emailTransporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || "smtp.gmail.com",
         port: parseInt(process.env.SMTP_PORT) || 587,
         secure: process.env.SMTP_PORT === "465",
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        connectionTimeout: 10000,
+        socketTimeout: 15000
     });
     return emailTransporter;
 }
+function resetEmailTransporter() { emailTransporter = null; }
 
 function buildProspectionEmailHTML(prospect) {
     const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
@@ -601,7 +605,9 @@ let sendingStats = { total: 0, sent: 0, errors: 0, current: "" };
 async function processSendingQueue() {
     if (sendingInProgress) return;
     sendingInProgress = true;
+    resetEmailTransporter();
     const DELAY_MS = parseInt(process.env.EMAIL_DELAY_MS) || 30000;
+    console.log(`📧 Démarrage envoi de ${sendingQueue.length} email(s), délai: ${DELAY_MS}ms`);
     const history = loadEmailHistory();
     const unsubscribed = loadUnsubscribed().map(u => u.email.toLowerCase());
 
