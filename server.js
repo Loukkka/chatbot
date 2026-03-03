@@ -98,6 +98,8 @@ ${strengthsText}
 - ${cfg.botPersonality?.tone || 'Ton professionnel mais chaleureux'}
 - ${cfg.botPersonality?.responseLength || 'Réponses concises (2-4 phrases max)'}
 - Ne jamais inventer de faux témoignages ou statistiques
+- Ne JAMAIS utiliser de formatting markdown (pas de **, *, #, _, etc.). Écris en texte brut uniquement.
+- Utilise des tirets (-) ou des points (•) pour les listes, jamais des astérisques
 
 🚫 NE JAMAIS :
 ${restrictionsText}`;
@@ -777,18 +779,21 @@ app.post("/api/admin/prospects/search", async (req, res) => {
     const cleanCount = Math.min(Math.max(parseInt(count) || 5, 1), 100);
     if (!cleanSector) return res.status(400).json({ error: "Secteur requis." });
 
-    const prompt = `Génère une liste de ${cleanCount} entreprises françaises réalistes dans le secteur "${cleanSector}"${cleanLocation ? ` situées à/en ${cleanLocation}` : ""}.
-Ce sont des suggestions de profils type pour de la prospection B2B.
+    const prompt = `Tu es un expert en prospection B2B. Trouve ${cleanCount} VRAIES entreprises existantes dans le secteur "${cleanSector}"${cleanLocation ? ` situées à/en ${cleanLocation}` : ""}.
+
+IMPORTANT : Ce doivent être de VRAIES entreprises qui existent réellement en France. Utilise tes connaissances pour trouver des entreprises réelles.
 
 Retourne UNIQUEMENT un tableau JSON valide (sans markdown, sans backticks, sans texte avant/après) avec ce format exact:
-[{"companyName":"Nom","email":"contact@domaine.fr","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte"}]
+[{"companyName":"Nom","email":"contact@domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
 
 Règles:
-- Noms crédibles et variés
-- Emails au format contact@ ou info@ avec domaines cohérents avec le nom
-- Sites web plausibles
+- Uniquement des entreprises qui existent RÉELLEMENT en France
+- Noms d'entreprises RÉELS et vérifiables
+- Emails : utilise le format standard contact@ ou info@ suivi du nom de domaine probable de l'entreprise. Si tu n'es pas sûr de l'email exact, utilise le format le plus probable (ex: contact@nom-entreprise.fr)
+- NE PAS inclure de champ "website" - on ne veut que companyName, email, sector et description
 - Sous-secteurs diversifiés dans "${cleanSector}"
-- ${cleanCount} résultats exactement`;
+- ${cleanCount} résultats exactement
+- Si tu ne connais pas assez d'entreprises réelles, complète avec des profils très réalistes mais indique "(profil type)" dans la description`;
 
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -810,7 +815,7 @@ Règles:
             id: Date.now() + i,
             companyName: sanitizeText(p.companyName, 200),
             email: sanitizeText(p.email, 254).toLowerCase(),
-            website: sanitizeText(p.website, 500),
+            website: p.website ? sanitizeText(p.website, 500) : "",
             sector: sanitizeText(p.sector, 100),
             description: sanitizeText(p.description, 500),
             status: "pending",

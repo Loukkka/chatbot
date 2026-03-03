@@ -218,7 +218,7 @@
         "#cb-btn:focus-visible{outline:3px solid ",CFG.color,";outline-offset:3px}",
         "#cb-btn img{width:34px;height:34px;border-radius:50%;object-fit:cover}",
         "#cb-btn.cb-hide{opacity:0;pointer-events:none;transform:scale(0.8)}",
-        "#cb-box{width:380px;height:520px;position:fixed;bottom:92px;",posR?"right:20px;":"left:20px;","background:#fff;border-radius:18px;box-shadow:0 12px 48px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;z-index:99998;font-family:'Inter','Helvetica Neue',Arial,sans-serif}",
+        "#cb-box{width:380px;height:520px;position:fixed;bottom:92px;",posR?"right:20px;":"left:20px;","background:#fff;border-radius:18px;box-shadow:0 12px 48px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;z-index:99998;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
         "#cb-box.cb-open{display:flex;animation:cb-up .3s ease}",
         "@keyframes cb-up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}",
         "#cb-hd{background:",CFG.color,";color:#fff;padding:16px 18px;font-weight:600;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:10px}",
@@ -229,8 +229,8 @@
         ".cb-x:focus-visible{outline:2px solid #fff;outline-offset:2px}",
         ".cb-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:4px;animation:cb-pulse 2s infinite}",
         "@keyframes cb-pulse{0%,100%{opacity:1}50%{opacity:.4}}",
-        "#cb-msgs{flex:1;padding:14px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:8px;background:#fafbff;scroll-behavior:smooth;font-family:'Inter','Helvetica Neue',Arial,sans-serif}",
-        ".cb-m{padding:10px 14px;border-radius:16px;max-width:84%;line-height:1.55;word-wrap:break-word;white-space:pre-wrap;font-size:13.5px;letter-spacing:0.01em;font-family:'Inter','Helvetica Neue',Arial,sans-serif}",
+        "#cb-msgs{flex:1;padding:14px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:8px;background:#fafbff;scroll-behavior:smooth;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
+        ".cb-m{padding:10px 14px;border-radius:16px;max-width:84%;line-height:1.55;word-wrap:break-word;white-space:pre-wrap;font-size:13.5px;letter-spacing:0.01em;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
         ".cb-b{background:",CL,";align-self:flex-start;border-bottom-left-radius:4px;color:#1e2a5a}",
         ".cb-u{background:",CFG.color,";color:#fff;align-self:flex-end;border-bottom-right-radius:4px}",
         ".cb-s{background:#fff3cd;color:#664d03;align-self:center;text-align:center;font-size:13px;border-radius:10px;max-width:95%}",
@@ -367,10 +367,14 @@
         requestAnimationFrame(function() { msgs.scrollTop = msgs.scrollHeight; });
     }
 
+    function cleanMarkdown(t) {
+        return t.replace(/\*\*\*(.+?)\*\*\*/g, '$1').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/_(.+?)_/g, '$1').replace(/^#{1,6}\s+/gm, '').replace(/^[\-\*]\s+/gm, '• ');
+    }
+
     function addMsg(text, type) {
         var el = document.createElement("div");
         el.classList.add("cb-m", "cb-" + type);
-        el.textContent = text;
+        el.textContent = type === "b" ? cleanMarkdown(text) : text;
         if (type === "b") el.setAttribute("aria-label", CFG.name + " dit");
         if (type === "u") el.setAttribute("aria-label", "Vous dites");
         msgs.appendChild(el);
