@@ -131,6 +131,98 @@ function getEmailDomain(email) {
     return parts[1].trim();
 }
 
+function getWebsiteHost(url) {
+    if (!isValidUrl(url)) return "";
+    try {
+        return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+        return "";
+    }
+}
+
+function isFreeMailboxDomain(domain) {
+    return /^(gmail\.com|googlemail\.com|yahoo\.|hotmail\.|outlook\.|live\.|icloud\.com|orange\.fr|wanadoo\.fr|free\.fr|sfr\.fr|laposte\.net|gmx\.|proton\.|mail\.com)$/i.test(domain || "");
+}
+
+function tokenizeCompanyName(name) {
+    const stop = new Set(["sarl", "sas", "eurl", "sa", "ets", "st", "ste", "societe", "entreprise", "services", "groupe", "du", "de", "des", "la", "le", "les", "et"]);
+    return sanitizeText(name || "", 200)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, " ")
+        .split(/\s+/)
+        .map(t => t.trim())
+        .filter(t => t.length >= 4 && !stop.has(t));
+}
+
+function websiteMatchesCompany(website, companyName) {
+    const host = getWebsiteHost(website);
+    if (!host) return false;
+    const tokens = tokenizeCompanyName(companyName);
+    if (!tokens.length) return false;
+    return tokens.some(t => host.includes(t));
+}
+
+function extractEmailsFromText(text) {
+    const matches = (text || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+    const cleaned = new Set();
+    for (const raw of matches) {
+        const email = raw.toLowerCase().replace(/[),.;:!?]+$/g, "").trim();
+        if (isValidEmail(email)) cleaned.add(email);
+    }
+    return [...cleaned];
+}
+
+function isEmailDomainCompatibleWithWebsite(email, website) {
+    const domain = getEmailDomain(email);
+    const host = getWebsiteHost(website);
+    if (!domain || !host) return false;
+    return domain === host || domain.endsWith(`.${host}`) || host.endsWith(`.${domain}`);
+}
+
+function scoreEmail(email) {
+    const local = (email.split("@")[0] || "").toLowerCase();
+    if (/^(contact|info|hello|bonjour|commercial|sales)$/.test(local)) return 100;
+    if (/(contact|info|commercial|sales|admin)/.test(local)) return 80;
+    return 40;
+}
+
+async function fetchHtml(url) {
+    try {
+        const res = await fetchWithTimeout(url, { method: "GET" }, 4500);
+        if (!res || !res.ok) return "";
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (ct && !ct.includes("text/html")) return "";
+        const html = await res.text();
+        return (html || "").slice(0, 250000);
+    } catch {
+        return "";
+    }
+}
+
+async function scrapeEmailFromWebsite(website) {
+    if (!isValidUrl(website)) return "";
+    const origin = new URL(website).origin;
+    const paths = ["/", "/contact", "/nous-contacter", "/contactez-nous", "/mentions-legales"];
+    const found = new Set();
+
+    for (const p of paths) {
+        const pageUrl = p === "/" ? origin : `${origin}${p}`;
+        const html = await fetchHtml(pageUrl);
+        if (!html) continue;
+        for (const email of extractEmailsFromText(html)) {
+            if (!isEmailDomainCompatibleWithWebsite(email, website)) continue;
+            const domain = getEmailDomain(email);
+            if (isFreeMailboxDomain(domain)) continue;
+            found.add(email);
+        }
+    }
+
+    const sorted = [...found].sort((a, b) => scoreEmail(b) - scoreEmail(a));
+    return sorted[0] || "";
+}
+
 async function hasEmailDomainRecords(domain) {
     if (!domain) return false;
     try {
@@ -167,19 +259,12 @@ async function isWebsiteReachable(url) {
     return false;
 }
 
-async function getVerifiedWebsite(candidateWebsite, email) {
+async function getVerifiedWebsite(candidateWebsite) {
     const tested = new Set();
     const candidates = [];
 
     const normalizedCandidate = normalizeWebsite(candidateWebsite);
     if (normalizedCandidate) candidates.push(normalizedCandidate);
-
-    const domain = getEmailDomain(email);
-    if (domain) {
-        candidates.push(`https://${domain}`);
-        candidates.push(`https://www.${domain}`);
-        candidates.push(`http://${domain}`);
-    }
 
     for (const candidate of candidates) {
         if (!candidate || tested.has(candidate)) continue;
@@ -857,13 +942,12 @@ app.post("/api/admin/prospects/search", async (req, res) => {
 IMPORTANT : Ce doivent être de VRAIES entreprises qui existent réellement en France. Utilise tes connaissances pour trouver des entreprises réelles.
 
 Retourne UNIQUEMENT un tableau JSON valide (sans markdown, sans backticks, sans texte avant/après) avec ce format exact:
-[{"companyName":"Nom","email":"contact@domaine.fr","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
+[{"companyName":"Nom","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
 
 Règles:
 - Uniquement des entreprises qui existent RÉELLEMENT en France
 - Noms d'entreprises RÉELS et vérifiables
-- Emails : uniquement des emails professionnels plausibles (pas de emails personnels type gmail/yahoo/hotmail)
-- Website : inclure seulement si le site semble réel
+- Website obligatoire et le plus exact possible
 - Sous-secteurs diversifiés dans "${cleanSector}"
 - ${cleanCount} résultats exactement
 - Interdit d'inventer des entreprises fictives ou des placeholders`;
@@ -886,25 +970,26 @@ Règles:
 
         const validated = await Promise.all((Array.isArray(prospects) ? prospects : []).map(async (p, i) => {
             const companyName = sanitizeText(p.companyName, 200);
-            const email = sanitizeText(p.email, 254).toLowerCase();
             const websiteInput = sanitizeText(p.website, 500);
             const sectorValue = sanitizeText(p.sector, 100);
             const descriptionValue = sanitizeText(p.description, 500);
 
-            if (!companyName || !isValidEmail(email)) return null;
-            const domain = getEmailDomain(email);
-            if (!domain) return null;
-            if (/^(gmail|yahoo|hotmail|outlook|live|icloud)\./i.test(domain)) return null;
+            if (!companyName || !websiteInput) return null;
 
-            const hasDomainRecords = await hasEmailDomainRecords(domain);
-            if (!hasDomainRecords) return null;
+            const verifiedWebsite = await getVerifiedWebsite(websiteInput);
+            if (!verifiedWebsite) return null;
+            if (!websiteMatchesCompany(verifiedWebsite, companyName)) return null;
 
-            const verifiedWebsite = await getVerifiedWebsite(websiteInput, email);
+            const scrapedEmail = await scrapeEmailFromWebsite(verifiedWebsite);
+            if (!scrapedEmail || !isValidEmail(scrapedEmail)) return null;
+            const domain = getEmailDomain(scrapedEmail);
+            if (!domain || isFreeMailboxDomain(domain)) return null;
+            if (!(await hasEmailDomainRecords(domain))) return null;
 
             return {
                 id: Date.now() + i,
                 companyName,
-                email,
+                email: scrapedEmail,
                 website: verifiedWebsite,
                 sector: sectorValue,
                 description: descriptionValue,
@@ -938,9 +1023,12 @@ app.post("/api/admin/prospects", async (req, res) => {
         const email = sanitizeText(p.email, 254).toLowerCase();
         if (!isValidEmail(email) || existingEmails.has(email) || unsubscribed.includes(email)) { skipped++; continue; }
         const domain = getEmailDomain(email);
-        if (!domain || /^(gmail|yahoo|hotmail|outlook|live|icloud)\./i.test(domain)) { skipped++; continue; }
+        if (!domain || isFreeMailboxDomain(domain)) { skipped++; continue; }
         if (!(await hasEmailDomainRecords(domain))) { skipped++; continue; }
-        const verifiedWebsite = await getVerifiedWebsite(sanitizeText(p.website, 500), email);
+        const verifiedWebsite = await getVerifiedWebsite(sanitizeText(p.website, 500));
+        if (!verifiedWebsite) { skipped++; continue; }
+        if (!isEmailDomainCompatibleWithWebsite(email, verifiedWebsite)) { skipped++; continue; }
+        if (!websiteMatchesCompany(verifiedWebsite, sanitizeText(p.companyName, 200))) { skipped++; continue; }
         existing.push({
             id: p.id || Date.now() + added,
             companyName: sanitizeText(p.companyName, 200), email,
