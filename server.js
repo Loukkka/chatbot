@@ -548,7 +548,8 @@ function getEmailTransporter() {
         secure: process.env.SMTP_PORT === "465",
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
         connectionTimeout: 10000,
-        socketTimeout: 15000
+        socketTimeout: 15000,
+        family: 4
     });
     return emailTransporter;
 }
