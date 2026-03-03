@@ -789,7 +789,10 @@ app.post("/api/admin/prospects/send", (req, res) => {
     if (sendingInProgress) return res.status(409).json({ error: "Envoi déjà en cours. Veuillez patienter." });
 
     const prospects = loadProspects();
+    console.log("📧 IDs reçus:", prospectIds);
+    console.log("📧 IDs disponibles:", prospects.map(p => p.id));
     const toSend = prospects.filter(p => prospectIds.includes(p.id) && p.status !== "sent");
+    console.log("📧 Prospects à envoyer:", toSend.length, toSend.map(p => p.email));
     if (!toSend.length) return res.status(400).json({ error: "Aucun prospect valide à contacter." });
 
     for (const p of toSend) { const f = prospects.find(pp => pp.id === p.id); if (f) f.status = "sending"; }

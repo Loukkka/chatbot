@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1772531519383,
+    "companyName": "TEST",
+    "email": "louka.pool@gmail.com",
+    "website": "test.fr",
+    "sector": "test",
+    "description": "",
+    "status": "sent",
+    "source": "manual",
+    "unsubToken": "347eee59dd24fd84b42bf8f20935e913",
+    "createdAt": "2026-03-03T09:51:59.384Z",
+    "sentAt": "2026-03-03T09:52:03.625Z"
+  }
+]
