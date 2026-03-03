@@ -923,7 +923,12 @@ app.get("/prospection", (req, res) => res.sendFile(path.join(__dirname, "public"
 // --- List prospects ---
 app.get("/api/admin/prospects", (req, res) => {
     if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
-    res.json({ total: loadProspects().length, prospects: loadProspects() });
+    const prospects = loadProspects().sort((a, b) => {
+        const v = Number(!!b.emailVerified100) - Number(!!a.emailVerified100);
+        if (v !== 0) return v;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    });
+    res.json({ total: prospects.length, prospects });
 });
 
 // --- AI Search ---
@@ -1020,7 +1025,12 @@ Règles:
         }));
 
         const enriched = validated.filter(Boolean);
-        res.json({ total: enriched.length, prospects: enriched, filteredOut: (Array.isArray(prospects) ? prospects.length : 0) - enriched.length });
+        const prioritized = enriched.sort((a, b) => {
+            const v = Number(!!b.emailVerified100) - Number(!!a.emailVerified100);
+            if (v !== 0) return v;
+            return a.companyName.localeCompare(b.companyName, "fr", { sensitivity: "base" });
+        });
+        res.json({ total: prioritized.length, prospects: prioritized, filteredOut: (Array.isArray(prospects) ? prospects.length : 0) - prioritized.length });
     } catch (err) {
         console.error("Erreur recherche IA:", err);
         res.status(500).json({ error: "Erreur de connexion au service IA." });
