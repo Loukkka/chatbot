@@ -536,24 +536,47 @@ function loadUnsubscribed() {
 function saveUnsubscribed(u) { fs.writeFileSync(UNSUBSCRIBED_FILE, JSON.stringify(u, null, 2), "utf-8"); }
 function generateToken() { return crypto.randomBytes(16).toString("hex"); }
 
-// --- Email transporter (lazy) ---
-let emailTransporter = null;
-function getEmailTransporter() {
-    if (emailTransporter) return emailTransporter;
-    const nodemailer = require("nodemailer");
-    console.log("📧 Création transporteur SMTP:", process.env.SMTP_HOST || "smtp.gmail.com", "user:", process.env.SMTP_USER || "NON DÉFINI");
-    emailTransporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: process.env.SMTP_PORT === "465",
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        connectionTimeout: 10000,
-        socketTimeout: 15000,
-        family: 4
-    });
-    return emailTransporter;
+// --- Email sending (Brevo API ou SMTP fallback) ---
+async function sendEmail(to, subject, html) {
+    const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
+    const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@example.com";
+
+    // Méthode 1 : Brevo API (recommandé pour Render)
+    if (process.env.BREVO_API_KEY) {
+        console.log("📧 Envoi via Brevo API à", to);
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "api-key": process.env.BREVO_API_KEY
+            },
+            body: JSON.stringify({
+                sender: { name: fromName, email: fromEmail },
+                to: [{ email: to }],
+                subject: subject,
+                htmlContent: html,
+                headers: { "List-Unsubscribe": `<${process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com"}/unsubscribe?email=${encodeURIComponent(to)}>` }
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || JSON.stringify(data));
+        return data;
+    }
+
+    // Méthode 2 : SMTP (fonctionne en local)
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        console.log("📧 Envoi via SMTP à", to);
+        const transporter = getEmailTransporter();
+        return await transporter.sendMail({
+            from: `"${fromName}" <${fromEmail}>`,
+            to: to,
+            subject: subject,
+            html: html
+        });
+    }
+
+    throw new Error("Aucune méthode d'envoi configurée. Ajoutez BREVO_API_KEY ou SMTP_USER/SMTP_PASS.");
 }
-function resetEmailTransporter() { emailTransporter = null; }
 
 function buildProspectionEmailHTML(prospect) {
     const SERVER_URL = process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com";
@@ -606,9 +629,9 @@ let sendingStats = { total: 0, sent: 0, errors: 0, current: "" };
 async function processSendingQueue() {
     if (sendingInProgress) return;
     sendingInProgress = true;
-    resetEmailTransporter();
     const DELAY_MS = parseInt(process.env.EMAIL_DELAY_MS) || 30000;
     console.log(`📧 Démarrage envoi de ${sendingQueue.length} email(s), délai: ${DELAY_MS}ms`);
+    console.log(`📧 Méthode: ${process.env.BREVO_API_KEY ? "Brevo API" : "SMTP"}`);
     const history = loadEmailHistory();
     const unsubscribed = loadUnsubscribed().map(u => u.email.toLowerCase());
 
@@ -632,16 +655,9 @@ async function processSendingQueue() {
         }
 
         try {
-            const transporter = getEmailTransporter();
-            const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
-            const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-            await transporter.sendMail({
-                from: `"${fromName}" <${fromEmail}>`,
-                to: prospect.email,
-                subject: `${prospect.companyName} — Boostez votre service client avec l'IA`,
-                html: buildProspectionEmailHTML(prospect),
-                headers: { "List-Unsubscribe": `<${process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com"}/unsubscribe?email=${encodeURIComponent(prospect.email)}&token=${encodeURIComponent(prospect.unsubToken || "")}>` }
-            });
+            const subject = `${prospect.companyName} — Boostez votre service client avec l'IA`;
+            const html = buildProspectionEmailHTML(prospect);
+            await sendEmail(prospect.email, subject, html);
             history.push({ id: Date.now(), prospectId: prospect.id, companyName: prospect.companyName, email: prospect.email, website: prospect.website || "", status: "sent", sentAt: new Date().toISOString() });
             sendingStats.sent++;
 
@@ -783,7 +799,7 @@ app.delete("/api/admin/prospects", (req, res) => {
 // --- Send emails ---
 app.post("/api/admin/prospects/send", (req, res) => {
     if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return res.status(400).json({ error: "Configuration SMTP manquante. Ajoutez SMTP_HOST, SMTP_USER, SMTP_PASS dans .env" });
+    if (!process.env.BREVO_API_KEY && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) return res.status(400).json({ error: "Configuration email manquante. Ajoutez BREVO_API_KEY ou SMTP_USER/SMTP_PASS dans les variables d'environnement." });
 
     const { prospectIds } = req.body;
     if (!Array.isArray(prospectIds) || !prospectIds.length) return res.status(400).json({ error: "Sélectionnez des prospects." });
@@ -868,5 +884,7 @@ app.listen(PORT, () => {
     console.log(`➕ Créer client : http://localhost:${PORT}/new-client`);
     console.log(`📧 Prospection : http://localhost:${PORT}/prospection`);
     if (!API_KEY) console.warn("⚠️  OPENROUTER_API_KEY manquante dans .env");
-    if (!process.env.SMTP_USER) console.warn("⚠️  SMTP non configuré — prospection email désactivée");
+    if (!process.env.BREVO_API_KEY && !process.env.SMTP_USER) console.warn("⚠️  Email non configuré — ajoutez BREVO_API_KEY ou SMTP_USER/SMTP_PASS");
+    if (process.env.BREVO_API_KEY) console.log("📧 Email configuré via Brevo API");
+    else if (process.env.SMTP_USER) console.log("📧 Email configuré via SMTP");
 });
