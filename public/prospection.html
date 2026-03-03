@@ -369,6 +369,12 @@ var sendingInterval = null;
 
 function $(id) { return document.getElementById(id); }
 function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+function emailPinHtml(item) {
+    var isVerified = !!(item && item.emailVerified100 === true);
+    return isVerified
+        ? '<span title="Email 100% vérifié" style="margin-right:6px;">🟢</span>'
+        : '<span title="Email non vérifié à 100%" style="margin-right:6px;">🔴</span>';
+}
 
 // =========== AUTH ===========
 function tryAuth() {
@@ -483,7 +489,7 @@ function renderSearchResults() {
         return '<tr data-idx="' + i + '">' +
             '<td><input type="checkbox" class="result-cb" data-idx="' + i + '" checked></td>' +
             '<td contenteditable="true" class="edit-company" data-idx="' + i + '">' + esc(p.companyName) + '</td>' +
-            '<td contenteditable="true" class="edit-email" data-idx="' + i + '">' + esc(p.email) + '</td>' +
+            '<td>' + emailPinHtml(p) + '<span contenteditable="true" class="edit-email" data-idx="' + i + '">' + esc(p.email) + '</span></td>' +
             '<td contenteditable="true" class="edit-website" data-idx="' + i + '">' + esc(p.website) + '</td>' +
             '<td>' + esc(p.sector) + '</td>' +
             '</tr>';
@@ -570,7 +576,7 @@ function renderProspects() {
         return '<tr>' +
             '<td><input type="checkbox" class="prospect-cb" data-id="' + p.id + '"' + (p.status === "sent" ? " disabled" : "") + '></td>' +
             '<td style="font-weight:600;color:var(--text);">' + esc(p.companyName) + '</td>' +
-            '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;">' + esc(p.email) + '</span></td>' +
+            '<td>' + emailPinHtml(p) + '<span style="font-family:\'DM Mono\',monospace;font-size:12px;">' + esc(p.email) + '</span></td>' +
             '<td>' + (p.website ? '<a href="' + esc(p.website) + '" target="_blank" style="color:var(--accent);text-decoration:none;font-size:12px;">' + esc(p.website.replace(/^https?:\/\/(www\.)?/, "").slice(0, 30)) + '</a>' : '—') + '</td>' +
             '<td style="font-size:12px;">' + esc(p.sector || "—") + '</td>' +
             '<td>' + (statusLabels[p.status] || statusLabels.pending) + '</td>' +

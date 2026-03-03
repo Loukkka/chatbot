@@ -983,8 +983,13 @@ Règles:
             const verifiedWebsite = safeWebsite ? await getVerifiedWebsite(safeWebsite) : "";
 
             let finalEmail = "";
+            let emailVerified100 = false;
             if (verifiedWebsite && websiteMatchesCompany(verifiedWebsite, companyName)) {
-                finalEmail = await scrapeEmailFromWebsite(verifiedWebsite);
+                const scraped = await scrapeEmailFromWebsite(verifiedWebsite);
+                if (scraped) {
+                    finalEmail = scraped;
+                    emailVerified100 = true;
+                }
             }
 
             if (!finalEmail && isValidEmail(aiEmail)) {
@@ -1003,6 +1008,7 @@ Règles:
                 id: Date.now() + i,
                 companyName,
                 email: finalEmail,
+                emailVerified100,
                 website: verifiedWebsite || safeWebsite,
                 sector: sectorValue,
                 description: descriptionValue,
@@ -1038,15 +1044,22 @@ app.post("/api/admin/prospects", async (req, res) => {
         const domain = getEmailDomain(email);
         if (!domain || isFreeMailboxDomain(domain)) { skipped++; continue; }
         if (!(await hasEmailDomainRecords(domain))) { skipped++; continue; }
+
+        let emailVerified100 = false;
         const websiteInput = sanitizeText(p.website, 500);
         const normalizedWebsite = normalizeWebsite(websiteInput);
         let website = "";
         if (normalizedWebsite && isValidUrl(normalizedWebsite)) {
             website = (await getVerifiedWebsite(normalizedWebsite)) || normalizedWebsite;
+            if (website && websiteMatchesCompany(website, sanitizeText(p.companyName, 200))) {
+                const scraped = await scrapeEmailFromWebsite(website);
+                if (scraped && scraped.toLowerCase() === email) emailVerified100 = true;
+            }
         }
         existing.push({
             id: p.id || Date.now() + added,
             companyName: sanitizeText(p.companyName, 200), email,
+            emailVerified100,
             website, sector: sanitizeText(p.sector, 100),
             description: sanitizeText(p.description, 500),
             status: "pending", source: p.source || "manual",
