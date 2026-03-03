@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const dns = require("dns").promises;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -115,6 +116,78 @@ function sanitizeText(str, maxLen = 500) {
 function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); }
 function isValidPhone(p) { if (!p) return true; return /^[+\d][\d\s\-.()]{6,20}$/.test(p); }
 function isValidUrl(u) { if (!u) return true; try { new URL(u); return true; } catch { return false; } }
+
+function normalizeWebsite(url) {
+    const clean = sanitizeText(url || "", 500);
+    if (!clean) return "";
+    if (/^https?:\/\//i.test(clean)) return clean;
+    return `https://${clean}`;
+}
+
+function getEmailDomain(email) {
+    const clean = sanitizeText(email || "", 254).toLowerCase();
+    const parts = clean.split("@");
+    if (parts.length !== 2) return "";
+    return parts[1].trim();
+}
+
+async function hasEmailDomainRecords(domain) {
+    if (!domain) return false;
+    try {
+        const mx = await dns.resolveMx(domain);
+        if (Array.isArray(mx) && mx.length) return true;
+    } catch {}
+    try {
+        const a = await dns.resolve4(domain);
+        if (Array.isArray(a) && a.length) return true;
+    } catch {}
+    return false;
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 4500) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal, redirect: "follow" });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function isWebsiteReachable(url) {
+    if (!isValidUrl(url)) return false;
+    try {
+        const head = await fetchWithTimeout(url, { method: "HEAD" });
+        if (head && head.ok) return true;
+    } catch {}
+    try {
+        const get = await fetchWithTimeout(url, { method: "GET" });
+        return !!(get && get.ok);
+    } catch {}
+    return false;
+}
+
+async function getVerifiedWebsite(candidateWebsite, email) {
+    const tested = new Set();
+    const candidates = [];
+
+    const normalizedCandidate = normalizeWebsite(candidateWebsite);
+    if (normalizedCandidate) candidates.push(normalizedCandidate);
+
+    const domain = getEmailDomain(email);
+    if (domain) {
+        candidates.push(`https://${domain}`);
+        candidates.push(`https://www.${domain}`);
+        candidates.push(`http://${domain}`);
+    }
+
+    for (const candidate of candidates) {
+        if (!candidate || tested.has(candidate)) continue;
+        tested.add(candidate);
+        if (await isWebsiteReachable(candidate)) return candidate;
+    }
+    return "";
+}
 
 const rateLimitMap = new Map();
 function rateLimit(key, max) {
@@ -776,7 +849,7 @@ app.post("/api/admin/prospects/search", async (req, res) => {
     const { sector, location, count } = req.body;
     const cleanSector = sanitizeText(sector, 100);
     const cleanLocation = sanitizeText(location, 100);
-    const cleanCount = Math.min(Math.max(parseInt(count) || 5, 1), 100);
+    const cleanCount = Math.min(Math.max(parseInt(count) || 5, 1), 30);
     if (!cleanSector) return res.status(400).json({ error: "Secteur requis." });
 
     const prompt = `Tu es un expert en prospection B2B. Trouve ${cleanCount} VRAIES entreprises existantes dans le secteur "${cleanSector}"${cleanLocation ? ` situées à/en ${cleanLocation}` : ""}.
@@ -784,16 +857,16 @@ app.post("/api/admin/prospects/search", async (req, res) => {
 IMPORTANT : Ce doivent être de VRAIES entreprises qui existent réellement en France. Utilise tes connaissances pour trouver des entreprises réelles.
 
 Retourne UNIQUEMENT un tableau JSON valide (sans markdown, sans backticks, sans texte avant/après) avec ce format exact:
-[{"companyName":"Nom","email":"contact@domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
+[{"companyName":"Nom","email":"contact@domaine.fr","website":"https://www.domaine.fr","sector":"Sous-secteur","description":"Description courte de l'activité"}]
 
 Règles:
 - Uniquement des entreprises qui existent RÉELLEMENT en France
 - Noms d'entreprises RÉELS et vérifiables
-- Emails : utilise le format standard contact@ ou info@ suivi du nom de domaine probable de l'entreprise. Si tu n'es pas sûr de l'email exact, utilise le format le plus probable (ex: contact@nom-entreprise.fr)
-- NE PAS inclure de champ "website" - on ne veut que companyName, email, sector et description
+- Emails : uniquement des emails professionnels plausibles (pas de emails personnels type gmail/yahoo/hotmail)
+- Website : inclure seulement si le site semble réel
 - Sous-secteurs diversifiés dans "${cleanSector}"
 - ${cleanCount} résultats exactement
-- Si tu ne connais pas assez d'entreprises réelles, complète avec des profils très réalistes mais indique "(profil type)" dans la description`;
+- Interdit d'inventer des entreprises fictives ou des placeholders`;
 
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -811,19 +884,39 @@ Règles:
             prospects = JSON.parse(jsonMatch ? jsonMatch[0] : content);
         } catch (e) { return res.status(500).json({ error: "Erreur parsing réponse IA.", raw: content }); }
 
-        const enriched = prospects.map((p, i) => ({
-            id: Date.now() + i,
-            companyName: sanitizeText(p.companyName, 200),
-            email: sanitizeText(p.email, 254).toLowerCase(),
-            website: p.website ? sanitizeText(p.website, 500) : "",
-            sector: sanitizeText(p.sector, 100),
-            description: sanitizeText(p.description, 500),
-            status: "pending",
-            source: "ai_search",
-            unsubToken: generateToken(),
-            createdAt: new Date().toISOString()
+        const validated = await Promise.all((Array.isArray(prospects) ? prospects : []).map(async (p, i) => {
+            const companyName = sanitizeText(p.companyName, 200);
+            const email = sanitizeText(p.email, 254).toLowerCase();
+            const websiteInput = sanitizeText(p.website, 500);
+            const sectorValue = sanitizeText(p.sector, 100);
+            const descriptionValue = sanitizeText(p.description, 500);
+
+            if (!companyName || !isValidEmail(email)) return null;
+            const domain = getEmailDomain(email);
+            if (!domain) return null;
+            if (/^(gmail|yahoo|hotmail|outlook|live|icloud)\./i.test(domain)) return null;
+
+            const hasDomainRecords = await hasEmailDomainRecords(domain);
+            if (!hasDomainRecords) return null;
+
+            const verifiedWebsite = await getVerifiedWebsite(websiteInput, email);
+
+            return {
+                id: Date.now() + i,
+                companyName,
+                email,
+                website: verifiedWebsite,
+                sector: sectorValue,
+                description: descriptionValue,
+                status: "pending",
+                source: "ai_search",
+                unsubToken: generateToken(),
+                createdAt: new Date().toISOString()
+            };
         }));
-        res.json({ total: enriched.length, prospects: enriched });
+
+        const enriched = validated.filter(Boolean);
+        res.json({ total: enriched.length, prospects: enriched, filteredOut: (Array.isArray(prospects) ? prospects.length : 0) - enriched.length });
     } catch (err) {
         console.error("Erreur recherche IA:", err);
         res.status(500).json({ error: "Erreur de connexion au service IA." });
@@ -831,7 +924,7 @@ Règles:
 });
 
 // --- Save prospects (batch) ---
-app.post("/api/admin/prospects", (req, res) => {
+app.post("/api/admin/prospects", async (req, res) => {
     if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
     const { prospects: newProspects } = req.body;
     if (!Array.isArray(newProspects) || !newProspects.length) return res.status(400).json({ error: "Liste de prospects requise." });
@@ -844,10 +937,14 @@ app.post("/api/admin/prospects", (req, res) => {
     for (const p of newProspects) {
         const email = sanitizeText(p.email, 254).toLowerCase();
         if (!isValidEmail(email) || existingEmails.has(email) || unsubscribed.includes(email)) { skipped++; continue; }
+        const domain = getEmailDomain(email);
+        if (!domain || /^(gmail|yahoo|hotmail|outlook|live|icloud)\./i.test(domain)) { skipped++; continue; }
+        if (!(await hasEmailDomainRecords(domain))) { skipped++; continue; }
+        const verifiedWebsite = await getVerifiedWebsite(sanitizeText(p.website, 500), email);
         existing.push({
             id: p.id || Date.now() + added,
             companyName: sanitizeText(p.companyName, 200), email,
-            website: sanitizeText(p.website, 500), sector: sanitizeText(p.sector, 100),
+            website: verifiedWebsite, sector: sanitizeText(p.sector, 100),
             description: sanitizeText(p.description, 500),
             status: "pending", source: p.source || "manual",
             unsubToken: p.unsubToken || generateToken(),

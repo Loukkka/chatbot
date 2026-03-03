@@ -198,8 +198,8 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
             <div class="info-box">
                 <span class="icon">💡</span>
                 <div>
-                    <strong>Recherche IA :</strong> L'IA génère des profils d'entreprises réalistes en fonction du secteur et de la localisation.
-                    <strong>Vérifiez et modifiez</strong> les informations avant d'envoyer des emails. Vous pouvez aussi ajouter des prospects manuellement.
+                    <strong>Recherche + vérification :</strong> les résultats IA sont filtrés avec des contrôles techniques (format email, domaine DNS/MX, site web joignable).
+                    <strong>Vérifiez quand même</strong> les informations avant envoi. Vous pouvez aussi ajouter des prospects manuellement.
                 </div>
             </div>
 
@@ -237,8 +237,7 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
                             <option value="5">5</option>
                             <option value="10" selected>10</option>
                             <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
+                            <option value="30">30</option>
                         </select>
                     </div>
                     <button class="btn-search" id="btn-search">🔍 Rechercher</button>
@@ -264,7 +263,7 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
                             <th style="width:30px;"></th>
                             <th>Entreprise</th>
                             <th>Email</th>
-                            <th>Site web</th>
+                            <th>Site vérifié</th>
                             <th>Secteur</th>
                         </tr></thead>
                         <tbody id="results-tbody"></tbody>
@@ -308,7 +307,7 @@ td[contenteditable]:focus{background:rgba(108,143,255,.08);box-shadow:inset 0 0 
                             <th style="width:30px;"></th>
                             <th>Entreprise</th>
                             <th>Email</th>
-                            <th>Site web</th>
+                            <th>Site vérifié</th>
                             <th>Secteur</th>
                             <th>Statut</th>
                             <th style="width:40px;"></th>
@@ -461,7 +460,11 @@ $("btn-search").addEventListener("click", function() {
         searchResults = data.prospects || [];
         $("results-count").textContent = searchResults.length;
         renderSearchResults();
-        toast(searchResults.length + " prospects trouvés !", "success");
+        if (data.filteredOut > 0) {
+            toast(searchResults.length + " prospects vérifiés trouvés (" + data.filteredOut + " filtrés).", "success");
+        } else {
+            toast(searchResults.length + " prospects vérifiés trouvés !", "success");
+        }
     })
     .catch(function(err) {
         btn.disabled = false;

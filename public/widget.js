@@ -281,7 +281,7 @@
     btn.setAttribute("role", "button");
     btn.title = "Ouvrir " + CFG.name;
     if (CFG.logo) { btn.innerHTML = '<img src="'+escAttr(CFG.logo)+'" alt="'+escAttr(CFG.name)+'">'; }
-    else { btn.textContent = "\uD83D\uDCAC"; }
+    else { btn.textContent = "AI"; }
 
     var box = document.createElement("div");
     box.id = "cb-box";
