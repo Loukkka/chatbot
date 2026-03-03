@@ -536,12 +536,92 @@ function loadUnsubscribed() {
 function saveUnsubscribed(u) { fs.writeFileSync(UNSUBSCRIBED_FILE, JSON.stringify(u, null, 2), "utf-8"); }
 function generateToken() { return crypto.randomBytes(16).toString("hex"); }
 
-// --- Email sending (Brevo API ou SMTP fallback) ---
+// --- Email sending (Gmail API > SMTP > Brevo) ---
+
+// Gmail API via HTTPS (fonctionne partout, même sur Render)
+async function sendViaGmailAPI(to, subject, html, fromName, fromEmail) {
+    const clientId = process.env.GMAIL_CLIENT_ID;
+    const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+    const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+    if (!clientId || !clientSecret || !refreshToken) return null;
+
+    // Rafraîchir l'access token
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token"
+        })
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok) throw new Error(`Gmail OAuth erreur: ${tokenData.error_description || tokenData.error}`);
+
+    // Construire l'email RFC 2822
+    const rawEmail = [
+        `From: =?UTF-8?B?${Buffer.from(fromName).toString("base64")}?= <${fromEmail}>`,
+        `To: ${to}`,
+        `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset="UTF-8"`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        Buffer.from(html).toString("base64")
+    ].join("\r\n");
+
+    // Encoder en base64url
+    const encodedEmail = Buffer.from(rawEmail)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+    // Envoyer via Gmail API
+    const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${tokenData.access_token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ raw: encodedEmail })
+    });
+    const sendData = await sendRes.json();
+    if (!sendRes.ok) throw new Error(`Gmail API erreur: ${sendData.error?.message || JSON.stringify(sendData)}`);
+    return sendData;
+}
+
 async function sendEmail(to, subject, html) {
     const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@example.com";
 
-    // Méthode 1 : Brevo API (recommandé pour Render)
+    // Méthode 1 : Gmail API (HTTPS — fonctionne partout, envoie depuis votre vraie adresse Gmail)
+    if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_REFRESH_TOKEN) {
+        console.log("📧 Envoi via Gmail API à", to);
+        return await sendViaGmailAPI(to, subject, html, fromName, fromEmail);
+    }
+
+    // Méthode 2 : SMTP direct (fonctionne en local, bloqué sur Render)
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        console.log("📧 Envoi via SMTP à", to);
+        const nodemailer = require("nodemailer");
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || "smtp.gmail.com",
+            port: parseInt(process.env.SMTP_PORT) || 587,
+            secure: false,
+            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+            family: 4
+        });
+        return await transporter.sendMail({
+            from: `"${fromName}" <${fromEmail}>`,
+            to: to,
+            subject: subject,
+            html: html
+        });
+    }
+
+    // Méthode 3 : Brevo API (fallback)
     if (process.env.BREVO_API_KEY) {
         console.log("📧 Envoi via Brevo API à", to);
         const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -554,8 +634,7 @@ async function sendEmail(to, subject, html) {
                 sender: { name: fromName, email: fromEmail },
                 to: [{ email: to }],
                 subject: subject,
-                htmlContent: html,
-                headers: { "List-Unsubscribe": `<${process.env.SERVER_URL || "https://chatbot-jeoh.onrender.com"}/unsubscribe?email=${encodeURIComponent(to)}>` }
+                htmlContent: html
             })
         });
         const data = await response.json();
@@ -563,19 +642,7 @@ async function sendEmail(to, subject, html) {
         return data;
     }
 
-    // Méthode 2 : SMTP (fonctionne en local)
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        console.log("📧 Envoi via SMTP à", to);
-        const transporter = getEmailTransporter();
-        return await transporter.sendMail({
-            from: `"${fromName}" <${fromEmail}>`,
-            to: to,
-            subject: subject,
-            html: html
-        });
-    }
-
-    throw new Error("Aucune méthode d'envoi configurée. Ajoutez BREVO_API_KEY ou SMTP_USER/SMTP_PASS.");
+    throw new Error("Aucune méthode d'envoi configurée. Ajoutez GMAIL_CLIENT_ID/GMAIL_REFRESH_TOKEN, ou SMTP_USER/SMTP_PASS.");
 }
 
 function buildProspectionEmailHTML(prospect) {
@@ -799,7 +866,7 @@ app.delete("/api/admin/prospects", (req, res) => {
 // --- Send emails ---
 app.post("/api/admin/prospects/send", (req, res) => {
     if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
-    if (!process.env.BREVO_API_KEY && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) return res.status(400).json({ error: "Configuration email manquante. Ajoutez BREVO_API_KEY ou SMTP_USER/SMTP_PASS dans les variables d'environnement." });
+    if (!process.env.GMAIL_REFRESH_TOKEN && !process.env.SMTP_USER && !process.env.BREVO_API_KEY) return res.status(400).json({ error: "Configuration email manquante. Ajoutez GMAIL_CLIENT_ID/GMAIL_REFRESH_TOKEN, SMTP_USER/SMTP_PASS, ou BREVO_API_KEY dans les variables d'environnement." });
 
     const { prospectIds } = req.body;
     if (!Array.isArray(prospectIds) || !prospectIds.length) return res.status(400).json({ error: "Sélectionnez des prospects." });
@@ -884,7 +951,8 @@ app.listen(PORT, () => {
     console.log(`➕ Créer client : http://localhost:${PORT}/new-client`);
     console.log(`📧 Prospection : http://localhost:${PORT}/prospection`);
     if (!API_KEY) console.warn("⚠️  OPENROUTER_API_KEY manquante dans .env");
-    if (!process.env.BREVO_API_KEY && !process.env.SMTP_USER) console.warn("⚠️  Email non configuré — ajoutez BREVO_API_KEY ou SMTP_USER/SMTP_PASS");
-    if (process.env.BREVO_API_KEY) console.log("📧 Email configuré via Brevo API");
+    if (!process.env.GMAIL_REFRESH_TOKEN && !process.env.SMTP_USER && !process.env.BREVO_API_KEY) console.warn("⚠️  Email non configuré — ajoutez GMAIL_CLIENT_ID/GMAIL_REFRESH_TOKEN ou SMTP_USER/SMTP_PASS");
+    if (process.env.GMAIL_REFRESH_TOKEN) console.log("📧 Email configuré via Gmail API (HTTPS)");
     else if (process.env.SMTP_USER) console.log("📧 Email configuré via SMTP");
+    else if (process.env.BREVO_API_KEY) console.log("📧 Email configuré via Brevo API");
 });
