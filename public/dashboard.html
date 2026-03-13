@@ -107,10 +107,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="auth-box">
         <div class="auth-logo">💬</div>
         <h1>Mon Dashboard</h1>
-        <p>Entrez votre clé d'accès pour consulter vos statistiques.</p>
-        <input type="password" id="auth-key" placeholder="Votre clé d'accès..." autofocus>
+        <p>Entrez votre mot de passe pour consulter vos statistiques.</p>
+        <input type="password" id="auth-key" placeholder="Votre mot de passe..." autofocus>
         <button id="auth-btn">Accéder</button>
-        <div class="auth-error" id="auth-error">Clé invalide. Contactez votre prestataire.</div>
+        <div class="auth-error" id="auth-error">Mot de passe invalide. Contactez votre prestataire.</div>
     </div>
 </div>
 <div class="dashboard" id="dashboard">
@@ -163,18 +163,20 @@ var verifiedKey="";
 var currentEvents=[],leadsData=[],currentStats={};
 var evtSource=null,reconnectTimer=null,sessionsSeen={};
 function $(id){return document.getElementById(id)}
-if(clientId&&urlKey){verifiedKey=urlKey;doAuth(urlKey);}
-function doAuth(key){
-    if(!key||!clientId){$("auth-error").style.display="block";return;}
-    fetch("/api/client-auth?clientId="+encodeURIComponent(clientId)+"&key="+encodeURIComponent(key))
+if(clientId&&urlKey){verifiedKey=urlKey;doAuth({key:urlKey});}
+function doAuth(credentials){
+    if(!credentials||!clientId){$("auth-error").style.display="block";return;}
+    var url="/api/client-auth?clientId="+encodeURIComponent(clientId);
+    if(credentials.key){url+="&key="+encodeURIComponent(credentials.key);}else if(credentials.password){url+="&password="+encodeURIComponent(credentials.password);}else{$("auth-error").style.display="block";return;}
+    fetch(url)
     .then(function(r){return r.json();})
     .then(function(d){
-        if(d.ok){verifiedKey=key;$("company-name").textContent="— "+(d.companyName||clientId);$("auth-screen").style.display="none";$("dashboard").classList.add("active");loadAll();connectSSE();}
+        if(d.ok){if(credentials.key){verifiedKey=credentials.key;}else{verifiedKey=$("auth-key").value.trim();}$("company-name").textContent="— "+(d.companyName||clientId);$("auth-screen").style.display="none";$("dashboard").classList.add("active");loadAll();connectSSE();}
         else{$("auth-error").style.display="block";}
     }).catch(function(){$("auth-error").style.display="block";});
 }
-$("auth-btn").addEventListener("click",function(){doAuth($("auth-key").value.trim());});
-$("auth-key").addEventListener("keydown",function(e){if(e.key==="Enter")doAuth($("auth-key").value.trim());});
+$("auth-btn").addEventListener("click",function(){doAuth({password:$("auth-key").value.trim()});});
+$("auth-key").addEventListener("keydown",function(e){if(e.key==="Enter")doAuth({password:$("auth-key").value.trim()});});
 document.querySelectorAll(".tab-btn").forEach(function(btn){btn.addEventListener("click",function(){document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active")});document.querySelectorAll(".tab-content").forEach(function(t){t.classList.remove("active")});btn.classList.add("active");$("tab-"+btn.dataset.tab).classList.add("active");});});
 $("refresh-btn").addEventListener("click",loadAll);
 function toast(title,desc,type){var c=$("toast-container"),t=document.createElement("div");t.className="toast"+(type==="lead"?" lead":"");t.innerHTML='<div class="toast-icon '+(type==="lead"?"green":"blue")+'">'+(type==="lead"?"✦":"·")+'</div><div class="toast-body"><div class="toast-title">'+esc(title)+'</div><div class="toast-desc">'+esc(desc)+'</div></div>';c.appendChild(t);setTimeout(function(){if(t.parentNode)t.remove();},4000);}

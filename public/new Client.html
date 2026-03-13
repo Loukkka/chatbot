@@ -70,6 +70,7 @@ body::before {
     font-family: 'Syne', sans-serif;
     font-size: 28px; font-weight: 800;
     background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    background-clip: text;
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
 .page-sub { font-size: 14px; color: var(--text2); margin-top: 2px; }
@@ -328,6 +329,11 @@ input[type=color] {
                     <input type="email" id="email" placeholder="contact@entreprise.fr">
                 </div>
                 <div class="form-group">
+                    <label>Mot de passe dashboard <span class="req">*</span></label>
+                    <input type="password" id="dashboardPassword" placeholder="6 caractères minimum">
+                    <div class="hint" id="password-hint">Requis pour un nouveau client. Laisser vide en édition pour conserver l'actuel.</div>
+                </div>
+                <div class="form-group">
                     <label>Téléphone</label>
                     <input type="tel" id="phone" placeholder="01 23 45 67 89">
                 </div>
@@ -353,6 +359,19 @@ input[type=color] {
                 <div class="form-group">
                     <label>Nom du bot <span class="req">*</span></label>
                     <input type="text" id="botName" placeholder="Alex" value="Assistant">
+                </div>
+                <div class="form-group">
+                    <label>Icône</label>
+                    <select id="botIcon">
+                        <option value="">AI (défaut)</option>
+                        <option value="🤖">🤖 Robot</option>
+                        <option value="💬">💬 Dialogue</option>
+                        <option value="🛠">🛠 Service</option>
+                        <option value="🏢">🏢 Entreprise</option>
+                        <option value="🚗">🚗 Auto</option>
+                        <option value="📞">📞 Contact</option>
+                        <option value="✨">✨ Premium</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Couleur principale</label>
@@ -454,60 +473,74 @@ input[type=color] {
 (function(){
     "use strict";
 
-    // ---- Server URL ----
     var SERVER = window.location.origin;
-    document.getElementById("server-url").textContent = SERVER;
+    var params = new URLSearchParams(window.location.search);
+    var editClientId = params.get("clientId") || "";
+    var isEditMode = !!editClientId;
+    var hasLoadedEditClient = false;
+
+    function $(id) { return document.getElementById(id); }
+
+    $("server-url").textContent = SERVER;
+    if (params.get("key")) $("admin-key-input").value = params.get("key");
+
+    if (isEditMode) {
+        document.title = "Modifier client — Chatbot IA";
+        document.querySelector(".page-title").textContent = "Modifier client";
+        document.querySelector(".page-sub").textContent = "Ajustez la configuration existante du chatbot";
+        $("btn-submit").textContent = "Enregistrer les modifications →";
+        document.querySelector(".result-title").textContent = "✦ Client mis à jour !";
+        $("password-hint").textContent = "Laisser vide pour conserver le mot de passe actuel, ou renseigner un nouveau mot de passe.";
+    }
 
     // ---- Color sync ----
-    var colorInput = document.getElementById("botColor");
-    var colorHex = document.getElementById("botColorHex");
+    var colorInput = $("botColor");
+    var colorHex = $("botColorHex");
     colorInput.addEventListener("input", function(){ colorHex.value = colorInput.value; });
     colorHex.addEventListener("input", function(){
         if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) colorInput.value = colorHex.value;
     });
 
     // ---- clientId auto-format ----
-    document.getElementById("clientId").addEventListener("input", function(){
+    $("clientId").addEventListener("input", function(){
         this.value = this.value.toLowerCase().replace(/[^a-z0-9-_]/g, "");
     });
-    document.getElementById("companyName").addEventListener("input", function(){
-        var idField = document.getElementById("clientId");
-        if (!idField.dataset.touched) {
+    $("companyName").addEventListener("input", function(){
+        var idField = $("clientId");
+        if (!idField.dataset.touched && !isEditMode) {
             idField.value = this.value.toLowerCase()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
         }
     });
-    document.getElementById("clientId").addEventListener("keydown", function(){
-        this.dataset.touched = "1";
-    });
+    $("clientId").addEventListener("keydown", function(){ this.dataset.touched = "1"; });
 
     // ---- Dynamic lists ----
-    function addDynamicItem(listId, placeholder) {
-        var list = document.getElementById(listId);
+    function addDynamicItem(listId, placeholder, value) {
+        var list = $(listId);
         var row = document.createElement("div");
         row.className = "dynamic-item";
         row.innerHTML = '<input type="text" placeholder="'+placeholder+'">'
             + '<button class="btn-remove" title="Supprimer">×</button>';
+        row.querySelector("input").value = value || "";
         row.querySelector(".btn-remove").addEventListener("click", function(){ row.remove(); });
         list.appendChild(row);
-        row.querySelector("input").focus();
+        return row;
     }
 
+    function clearDynamicList(listId) { $(listId).innerHTML = ""; }
+
     function getDynamicValues(listId) {
-        return Array.from(document.getElementById(listId).querySelectorAll("input"))
+        return Array.from($(listId).querySelectorAll("input"))
             .map(function(i){ return i.value.trim(); }).filter(Boolean);
     }
 
-    document.getElementById("btn-add-strength").addEventListener("click", function(){ addDynamicItem("strengths-list", "Ex: Rapidité d'exécution, Prix transparents..."); });
-    document.getElementById("btn-add-question").addEventListener("click", function(){ addDynamicItem("questions-list", "Ex: Quel est votre budget ?"); });
-    document.getElementById("btn-add-restriction").addEventListener("click", function(){ addDynamicItem("restrictions-list", "Ex: Ne jamais promettre un délai précis"); });
+    $("btn-add-strength").addEventListener("click", function(){ addDynamicItem("strengths-list", "Ex: Rapidité d'exécution, Prix transparents...").querySelector("input").focus(); });
+    $("btn-add-question").addEventListener("click", function(){ addDynamicItem("questions-list", "Ex: Quel est votre budget ?").querySelector("input").focus(); });
+    $("btn-add-restriction").addEventListener("click", function(){ addDynamicItem("restrictions-list", "Ex: Ne jamais promettre un délai précis").querySelector("input").focus(); });
 
     // ---- Services ----
-    var serviceCount = 0;
-    function addService() {
-        serviceCount++;
-        var n = serviceCount;
+    function addService(service) {
         var block = document.createElement("div");
         block.className = "service-block";
         block.innerHTML = '<button class="btn-remove-service">Supprimer</button>'
@@ -517,12 +550,20 @@ input[type=color] {
             + '<div class="form-group span2"><label>Description</label><input type="text" class="svc-desc" placeholder="Vidange + filtre à huile inclus"></div>'
             + '</div>';
         block.querySelector(".btn-remove-service").addEventListener("click", function(){ block.remove(); });
-        document.getElementById("services-list").appendChild(block);
+        $("services-list").appendChild(block);
+
+        if (service) {
+            block.querySelector(".svc-name").value = service.name || "";
+            block.querySelector(".svc-price").value = service.price || "";
+            block.querySelector(".svc-desc").value = service.description || "";
+        }
     }
-    document.getElementById("btn-add-service").addEventListener("click", addService);
+    function clearServices() { $("services-list").innerHTML = ""; }
+
+    $("btn-add-service").addEventListener("click", function(){ addService(); });
 
     function getServices() {
-        return Array.from(document.getElementById("services-list").querySelectorAll(".service-block")).map(function(b){
+        return Array.from($("services-list").querySelectorAll(".service-block")).map(function(b){
             return {
                 name: b.querySelector(".svc-name").value.trim(),
                 price: b.querySelector(".svc-price").value.trim(),
@@ -531,49 +572,120 @@ input[type=color] {
         }).filter(function(s){ return s.name; });
     }
 
-    // ---- Submit ----
-    document.getElementById("btn-submit").addEventListener("click", function(){
-        var adminKey = document.getElementById("admin-key-input").value.trim();
-        var clientId = document.getElementById("clientId").value.trim();
-        var companyName = document.getElementById("companyName").value.trim();
+    function fillForm(clientId, cfg) {
+        cfg = cfg || {};
+        var chatbot = cfg.chatbot || {};
+        var personality = cfg.botPersonality || {};
 
-        var statusEl = document.getElementById("submit-status");
-        var authStatus = document.getElementById("auth-status");
+        $("clientId").value = clientId || "";
+        $("clientId").readOnly = true;
+        $("clientId").style.opacity = "0.7";
+
+        $("companyName").value = cfg.companyName || "";
+        $("companyDescription").value = cfg.companyDescription || "";
+        $("email").value = cfg.email || "";
+        $("phone").value = cfg.phone || "";
+        $("location").value = cfg.location || "";
+        $("hours").value = cfg.hours || "";
+        $("website").value = cfg.website || "";
+
+        $("botName").value = chatbot.name || "Assistant";
+        $("botIcon").value = chatbot.icon || "";
+        $("botColor").value = /^#[0-9a-fA-F]{6}$/.test(chatbot.color || "") ? chatbot.color : "#7c6fff";
+        $("botColorHex").value = $("botColor").value;
+        $("botWelcome").value = chatbot.welcome || "Bonjour ! Comment puis-je vous aider ?";
+        $("botPlaceholder").value = chatbot.placeholder || "Posez votre question...";
+        $("botPosition").value = chatbot.position === "left" ? "left" : "right";
+        $("leadDelay").value = chatbot.leadDelay || 3;
+
+        $("tone").value = personality.tone || "Professionnel mais chaleureux";
+        $("responseLength").value = personality.responseLength || "Réponses concises (2-4 phrases max)";
+        $("callToAction").value = personality.callToAction || "Proposer un rendez-vous pour discuter du projet";
+
+        clearServices();
+        (cfg.services || []).forEach(addService);
+
+        clearDynamicList("strengths-list");
+        (personality.strengths || []).forEach(function(v){ addDynamicItem("strengths-list", "Point fort", v); });
+
+        clearDynamicList("questions-list");
+        (personality.qualifyingQuestions || []).forEach(function(v){ addDynamicItem("questions-list", "Question", v); });
+
+        clearDynamicList("restrictions-list");
+        (personality.restrictions || []).forEach(function(v){ addDynamicItem("restrictions-list", "Restriction", v); });
+    }
+
+    function tryLoadEditClient() {
+        if (!isEditMode || hasLoadedEditClient) return;
+        var adminKey = $("admin-key-input").value.trim();
+        if (!adminKey) return;
+
+        fetch(SERVER + "/api/admin/clients/" + encodeURIComponent(editClientId) + "?key=" + encodeURIComponent(adminKey))
+            .then(function(r){ return r.json().then(function(body){ return { ok: r.ok, body: body }; }); })
+            .then(function(res){
+                if (!res.ok || !res.body.ok) {
+                    if (res.body && res.body.error === "Accès refusé.") {
+                        $("auth-status").textContent = "✗ Clé invalide";
+                        $("auth-status").className = "status err";
+                    }
+                    return;
+                }
+                hasLoadedEditClient = true;
+                fillForm(editClientId, res.body.config || {});
+                $("auth-status").textContent = "✓ Connecté";
+                $("auth-status").className = "status ok";
+            })
+            .catch(function(){});
+    }
+
+    // ---- Submit ----
+    $("btn-submit").addEventListener("click", function(){
+        var adminKey = $("admin-key-input").value.trim();
+        var clientId = $("clientId").value.trim();
+        var companyName = $("companyName").value.trim();
+        var dashboardPassword = $("dashboardPassword").value.trim();
+
+        var statusEl = $("submit-status");
+        var authStatus = $("auth-status");
 
         if (!adminKey) { authStatus.textContent = "⚠ Clé admin requise"; authStatus.className = "status err"; return; }
         if (!clientId) { statusEl.textContent = "⚠ L'ID client est requis"; return; }
         if (!companyName) { statusEl.textContent = "⚠ Le nom de l'entreprise est requis"; return; }
+        if (!isEditMode && dashboardPassword.length < 6) { statusEl.textContent = "⚠ Mot de passe dashboard: 6 caractères minimum"; return; }
+        if (isEditMode && dashboardPassword && dashboardPassword.length < 6) { statusEl.textContent = "⚠ Nouveau mot de passe trop court (min. 6)"; return; }
 
-        var btn = document.getElementById("btn-submit");
+        var btn = $("btn-submit");
         btn.disabled = true;
-        btn.textContent = "Création en cours...";
+        btn.textContent = isEditMode ? "Mise à jour en cours..." : "Création en cours...";
         statusEl.textContent = "";
 
         var config = {
             companyName: companyName,
-            companyDescription: document.getElementById("companyDescription").value.trim(),
-            email: document.getElementById("email").value.trim(),
-            phone: document.getElementById("phone").value.trim(),
-            location: document.getElementById("location").value.trim(),
-            hours: document.getElementById("hours").value.trim(),
-            website: document.getElementById("website").value.trim(),
+            companyDescription: $("companyDescription").value.trim(),
+            email: $("email").value.trim(),
+            phone: $("phone").value.trim(),
+            location: $("location").value.trim(),
+            hours: $("hours").value.trim(),
+            website: $("website").value.trim(),
             services: getServices(),
+            dashboardPassword: dashboardPassword,
             botPersonality: {
-                tone: document.getElementById("tone").value.trim(),
+                tone: $("tone").value.trim(),
                 language: "français",
-                responseLength: document.getElementById("responseLength").value.trim(),
-                callToAction: document.getElementById("callToAction").value.trim(),
+                responseLength: $("responseLength").value.trim(),
+                callToAction: $("callToAction").value.trim(),
                 strengths: getDynamicValues("strengths-list"),
                 qualifyingQuestions: getDynamicValues("questions-list"),
                 restrictions: getDynamicValues("restrictions-list")
             },
             chatbot: {
-                name: document.getElementById("botName").value.trim() || "Assistant",
+                name: $("botName").value.trim() || "Assistant",
+                icon: $("botIcon").value || "",
                 color: colorHex.value || "#7c6fff",
-                welcome: document.getElementById("botWelcome").value.trim(),
-                placeholder: document.getElementById("botPlaceholder").value.trim(),
-                position: document.getElementById("botPosition").value,
-                leadDelay: parseInt(document.getElementById("leadDelay").value) || 3
+                welcome: $("botWelcome").value.trim(),
+                placeholder: $("botPlaceholder").value.trim(),
+                position: $("botPosition").value,
+                leadDelay: parseInt($("leadDelay").value, 10) || 3
             }
         };
 
@@ -585,19 +697,18 @@ input[type=color] {
         .then(function(r){ return r.json(); })
         .then(function(data){
             btn.disabled = false;
-            btn.textContent = "Créer le client →";
+            btn.textContent = isEditMode ? "Enregistrer les modifications →" : "Créer le client →";
 
             if (data.ok) {
                 authStatus.textContent = "✓ Connecté";
                 authStatus.className = "status ok";
 
-                // Show result
-                document.getElementById("form-wrap").style.display = "none";
-                var resultBox = document.getElementById("result-box");
+                $("form-wrap").style.display = "none";
+                var resultBox = $("result-box");
                 resultBox.classList.add("show");
-                document.getElementById("result-sub").textContent = "Client « " + companyName + " » ("+data.clientId+") créé avec succès !";
-                document.getElementById("result-snippet").textContent = data.snippet;
-                document.getElementById("link-dashboard").href = data.dashboardUrl || ("/dashboard?clientId=" + encodeURIComponent(data.clientId));
+                $("result-sub").textContent = "Client « " + companyName + " » ("+data.clientId+") " + (isEditMode ? "mis à jour" : "créé") + " avec succès !";
+                $("result-snippet").textContent = data.snippet;
+                $("link-dashboard").href = data.dashboardUrl || ("/dashboard?clientId=" + encodeURIComponent(data.clientId));
             } else {
                 if (data.error === "Accès refusé.") {
                     authStatus.textContent = "✗ Clé invalide";
@@ -607,22 +718,22 @@ input[type=color] {
                 }
             }
         })
-        .catch(function(err){
+        .catch(function(){
             btn.disabled = false;
-            btn.textContent = "Créer le client →";
+            btn.textContent = isEditMode ? "Enregistrer les modifications →" : "Créer le client →";
             statusEl.textContent = "Erreur réseau. Vérifiez votre connexion.";
         });
     });
 
     // ---- Copy snippet ----
-    document.getElementById("btn-copy-snippet").addEventListener("click", function(){
-        var snippet = document.getElementById("result-snippet").textContent;
+    $("btn-copy-snippet").addEventListener("click", function(){
+        var snippet = $("result-snippet").textContent;
         navigator.clipboard.writeText(snippet).then(function(){
-            var btn = document.getElementById("btn-copy-snippet");
+            var btn = $("btn-copy-snippet");
             btn.textContent = "✓ Copié dans le presse-papiers !";
             setTimeout(function(){ btn.textContent = "Copier le snippet"; }, 2500);
         }).catch(function(){
-            var el = document.getElementById("result-snippet");
+            var el = $("result-snippet");
             var range = document.createRange();
             range.selectNode(el);
             window.getSelection().removeAllRanges();
@@ -631,26 +742,46 @@ input[type=color] {
     });
 
     // ---- New client ----
-    document.getElementById("btn-new").addEventListener("click", function(){
-        document.getElementById("result-box").classList.remove("show");
-        document.getElementById("form-wrap").style.display = "block";
-        document.getElementById("clientId").value = "";
-        document.getElementById("clientId").dataset.touched = "";
-        document.getElementById("companyName").value = "";
+    $("btn-new").addEventListener("click", function(){
+        if (isEditMode) {
+            window.location.href = "/new-client";
+            return;
+        }
+        $("result-box").classList.remove("show");
+        $("form-wrap").style.display = "block";
+        $("clientId").value = "";
+        $("clientId").dataset.touched = "";
+        $("companyName").value = "";
+        $("dashboardPassword").value = "";
         window.scrollTo(0,0);
     });
 
     // ---- Auth key check on blur ----
-    document.getElementById("admin-key-input").addEventListener("blur", function(){
+    $("admin-key-input").addEventListener("blur", function(){
         var key = this.value.trim();
-        var status = document.getElementById("auth-status");
+        var status = $("auth-status");
         if (!key) { status.textContent = ""; return; }
         fetch(SERVER + "/api/admin/clients?key=" + encodeURIComponent(key))
             .then(function(r){
-                if (r.ok) { status.textContent = "✓ Connecté"; status.className = "status ok"; }
-                else { status.textContent = "✗ Clé invalide"; status.className = "status err"; }
+                if (r.ok) {
+                    status.textContent = "✓ Connecté";
+                    status.className = "status ok";
+                    tryLoadEditClient();
+                } else {
+                    status.textContent = "✗ Clé invalide";
+                    status.className = "status err";
+                }
             }).catch(function(){ status.textContent = "Erreur réseau"; status.className = "status err"; });
     });
+
+    // Default seed fields
+    addService();
+    addDynamicItem("strengths-list", "Ex: Rapidité d'exécution, Prix transparents...", "");
+    addDynamicItem("questions-list", "Ex: Quel est votre budget ?", "");
+    addDynamicItem("restrictions-list", "Ex: Ne jamais promettre un délai précis", "");
+
+    // Try loading edit mode immediately when key is present in URL
+    tryLoadEditClient();
 
 })();
 </script>

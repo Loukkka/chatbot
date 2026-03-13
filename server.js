@@ -3,6 +3,7 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const dns = require("dns").promises;
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +117,27 @@ function sanitizeText(str, maxLen = 500) {
 function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); }
 function isValidPhone(p) { if (!p) return true; return /^[+\d][\d\s\-.()]{6,20}$/.test(p); }
 function isValidUrl(u) { if (!u) return true; try { new URL(u); return true; } catch { return false; } }
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
+    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex");
+    return { salt, hash };
+}
+
+function verifyPassword(password, hash, salt) {
+    if (!password || !hash || !salt) return false;
+    const candidate = crypto.pbkdf2Sync(password, salt, 100000, 64, "sha512").toString("hex");
+    try {
+        return crypto.timingSafeEqual(Buffer.from(candidate, "hex"), Buffer.from(hash, "hex"));
+    } catch {
+        return false;
+    }
+}
+
+function isClientCredentialValid(client, credential) {
+    if (!client || !credential) return false;
+    if (client.clientKey === credential) return true;
+    return verifyPassword(credential, client.dashboardPasswordHash, client.dashboardPasswordSalt);
+}
 
 function normalizeWebsite(url) {
     const clean = sanitizeText(url || "", 500);
@@ -363,11 +385,17 @@ app.get("/embed", (req, res) => res.sendFile(path.join(__dirname, "public", "emb
 // AUTH CLIENT — vérifier la clé d'un client
 // ============================================================
 app.get("/api/client-auth", (req, res) => {
-    const { clientId, key } = req.query;
-    if (!clientId || !key) return res.status(400).json({ error: "clientId et key requis." });
+    const clientId = sanitizeText(req.query.clientId || "", 50);
+    const key = sanitizeText(req.query.key || "", 100);
+    const password = sanitizeText(req.query.password || "", 200);
+    if (!clientId) return res.status(400).json({ error: "clientId requis." });
     const client = getClient(clientId);
     if (!client) return res.status(404).json({ error: "Client introuvable." });
-    if (client.clientKey !== key) return res.status(403).json({ error: "Clé invalide." });
+
+    const passOk = verifyPassword(password, client.dashboardPasswordHash, client.dashboardPasswordSalt);
+    const keyOk = isClientCredentialValid(client, key);
+    if (!passOk && !keyOk) return res.status(403).json({ error: "Identifiants invalides." });
+
     res.json({ ok: true, companyName: client.companyName });
 });
 
@@ -383,10 +411,26 @@ app.get("/api/admin/clients", (req, res) => {
         companyName: cfg.companyName || id,
         createdAt: cfg.createdAt || null,
         clientKey: cfg.clientKey || null,
+        hasPassword: !!(cfg.dashboardPasswordHash && cfg.dashboardPasswordSalt),
         dashboardUrl: `${SERVER_URL}/dashboard?clientId=${id}&key=${cfg.clientKey || ""}`,
         snippet: `<script>\nwindow.CHATBOT_CONFIG = { server: "${SERVER_URL}", clientId: "${id}" };\n</script>\n<script src="${SERVER_URL}/widget.js"></script>`
     }));
     res.json({ total: list.length, clients: list });
+});
+
+app.get("/api/admin/clients/:clientId", (req, res) => {
+    if (req.query.key !== ADMIN_KEY) return res.status(403).json({ error: "Accès refusé." });
+    const cleanId = sanitizeText(req.params.clientId || "", 50).toLowerCase();
+    const clients = loadClients();
+    const cfg = clients[cleanId];
+    if (!cfg) return res.status(404).json({ error: "Client introuvable." });
+
+    const safeConfig = { ...cfg };
+    delete safeConfig.dashboardPasswordHash;
+    delete safeConfig.dashboardPasswordSalt;
+    safeConfig.hasPassword = !!(cfg.dashboardPasswordHash && cfg.dashboardPasswordSalt);
+
+    res.json({ ok: true, clientId: cleanId, config: safeConfig });
 });
 
 app.post("/api/admin/clients", (req, res) => {
@@ -406,11 +450,51 @@ app.post("/api/admin/clients", (req, res) => {
         return key;
     }
     // Générer une clé unique pour ce client (on la garde si elle existe déjà)
-    const clientKey = clients[cleanId]?.clientKey || generateClientKey();
+    const previous = clients[cleanId] || {};
+    const clientKey = previous.clientKey || generateClientKey();
+
+    const rawPassword = sanitizeText(config.dashboardPassword || "", 200);
+    const shouldSetPassword = rawPassword.length > 0;
+    let dashboardPasswordHash = previous.dashboardPasswordHash || "";
+    let dashboardPasswordSalt = previous.dashboardPasswordSalt || "";
+
+    if (!previous.clientId && !shouldSetPassword) {
+        return res.status(400).json({ error: "Mot de passe dashboard requis pour un nouveau client." });
+    }
+    if (shouldSetPassword) {
+        if (rawPassword.length < 6) {
+            return res.status(400).json({ error: "Le mot de passe doit contenir au moins 6 caractères." });
+        }
+        const secured = hashPassword(rawPassword);
+        dashboardPasswordHash = secured.hash;
+        dashboardPasswordSalt = secured.salt;
+    }
+
+    const cleanChatbot = {
+        ...(config.chatbot || {}),
+        name: sanitizeText(config.chatbot?.name || "Assistant", 80) || "Assistant",
+        color: /^#[0-9a-fA-F]{6}$/.test(config.chatbot?.color || "") ? config.chatbot.color : "#4B6BFB",
+        icon: sanitizeText(config.chatbot?.icon || "", 8),
+        logo: sanitizeText(config.chatbot?.logo || "", 500),
+        welcome: sanitizeText(config.chatbot?.welcome || "Bonjour ! Comment puis-je vous aider ?", 500),
+        placeholder: sanitizeText(config.chatbot?.placeholder || "Posez votre question...", 120),
+        position: config.chatbot?.position === "left" ? "left" : "right",
+        leadDelay: Math.max(1, Math.min(20, Number.parseInt(config.chatbot?.leadDelay, 10) || 3)),
+        leadTimeDelay: Math.max(10, Math.min(3600, Number.parseInt(config.chatbot?.leadTimeDelay, 10) || 60)),
+        leadKeywords: Array.isArray(config.chatbot?.leadKeywords)
+            ? config.chatbot.leadKeywords.map(k => sanitizeText(k, 40)).filter(Boolean).slice(0, 30)
+            : []
+    };
+
     clients[cleanId] = {
-        ...config, clientId: cleanId, clientKey,
+        ...config,
+        clientId: cleanId,
+        clientKey,
+        chatbot: cleanChatbot,
+        dashboardPasswordHash,
+        dashboardPasswordSalt,
         updatedAt: new Date().toISOString(),
-        createdAt: clients[cleanId]?.createdAt || new Date().toISOString()
+        createdAt: previous.createdAt || new Date().toISOString()
     };
     saveClients(clients);
     res.json({
@@ -440,6 +524,7 @@ app.get("/api/widget-config", (req, res) => {
         welcome: chatbot.welcome || "Bonjour ! Comment puis-je vous aider ?",
         placeholder: chatbot.placeholder || "Posez votre question...",
         color: chatbot.color || "#4B6BFB",
+        icon: chatbot.icon || "",
         logo: chatbot.logo || "",
         position: chatbot.position || "right",
         leadDelay: chatbot.leadDelay || 3,
@@ -547,7 +632,7 @@ function isAuthorized(req, clientId) {
     const key = req.query.key;
     if (key === ADMIN_KEY) return true;
     const client = getClient(clientId);
-    return client && client.clientKey === key;
+    return isClientCredentialValid(client, key);
 }
 
 app.get("/api/leads", (req, res) => {
@@ -652,7 +737,7 @@ app.get("/api/stream", (req, res) => {
     if (!isAdmin) {
         if (!clientId) return res.status(400).json({ error: "clientId requis." });
         const client = getClient(clientId);
-        if (!client || client.clientKey !== key) return res.status(403).json({ error: "Accès refusé." });
+        if (!isClientCredentialValid(client, key)) return res.status(403).json({ error: "Accès refusé." });
     }
 
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no" });
@@ -674,7 +759,6 @@ app.get("/api/stream", (req, res) => {
 // ============================================================
 // PROSPECTION MODULE
 // ============================================================
-const crypto = require("crypto");
 const PROSPECTS_FILE = path.join(DATA_DIR, "prospects.json");
 const EMAIL_HISTORY_FILE = path.join(DATA_DIR, "email_history.json");
 const UNSUBSCRIBED_FILE = path.join(DATA_DIR, "unsubscribed.json");

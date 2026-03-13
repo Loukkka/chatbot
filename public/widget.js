@@ -30,6 +30,7 @@
         clientId: "",          // ← identifiant du client
         color: "#4B6BFB",
         name: "Assistant",
+        icon: "",
         logo: "",
         welcome: "Bonjour ! Comment puis-je vous aider ?",
         placeholder: "Posez votre question...",
@@ -70,17 +71,18 @@
         if (cfg.welcome)     CFG.welcome     = cfg.welcome;
         if (cfg.placeholder) CFG.placeholder = cfg.placeholder;
         if (cfg.color)       CFG.color       = cfg.color;
+        if (cfg.icon)        CFG.icon        = cfg.icon;
         if (cfg.logo)        CFG.logo        = cfg.logo;
         if (cfg.position)    CFG.position    = cfg.position;
-        if (cfg.leadDelay)   CFG.leadDelay   = cfg.leadDelay;
-        if (cfg.leadTimeDelay) CFG.leadTimeDelay = cfg.leadTimeDelay;
+        if (typeof cfg.leadDelay === "number")   CFG.leadDelay   = cfg.leadDelay;
+        if (typeof cfg.leadTimeDelay === "number") CFG.leadTimeDelay = cfg.leadTimeDelay;
         if (cfg.leadKeywords && cfg.leadKeywords.length) CFG.leadKeywords = cfg.leadKeywords;
     }
 
     if (CFG.clientId) {
         fetch(CFG.server + "/api/widget-config?clientId=" + encodeURIComponent(CFG.clientId))
             .then(function(r){ return r.json(); })
-            .then(function(cfg){ applyServerConfig(cfg); })
+            .then(function(cfg){ applyServerConfig(cfg); applyRuntimeConfig(); })
             .catch(function(){});
     }
 
@@ -100,10 +102,63 @@
     }
 
     function escAttr(s) { return String(s).replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
+    function escText(s) { return String(s || "").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
     var CL  = hexToRgba(CFG.color, 0.12);
     var CS  = hexToRgba(CFG.color, 0.35);
     var CH  = hexToRgba(CFG.color, 0.85);
+
+    function recalcTheme() {
+        CL = hexToRgba(CFG.color, 0.12);
+        CS = hexToRgba(CFG.color, 0.35);
+        CH = hexToRgba(CFG.color, 0.85);
+    }
+
+    function renderLauncherContent() {
+        if (CFG.logo) return '<img src="'+escAttr(CFG.logo)+'" alt="'+escAttr(CFG.name)+'">';
+        return escText(CFG.icon || "AI");
+    }
+
+    function renderHeaderLeft() {
+        var iconHtml = CFG.logo
+            ? '<img src="'+escAttr(CFG.logo)+'" alt="">'
+            : '<span class="cb-ic">'+escText(CFG.icon || "AI")+'</span>';
+        return '<div id="cb-hd-l">'+iconHtml+'<span class="cb-dot"></span>'+escText(CFG.name)+'</div>';
+    }
+
+    function applyRuntimeConfig() {
+        recalcTheme();
+        if (!btn || !box) return;
+
+        btn.style.background = CFG.color;
+        btn.style.boxShadow = "0 4px 18px " + CS;
+        btn.setAttribute("aria-label", "Ouvrir le chat " + CFG.name);
+        btn.title = "Ouvrir " + CFG.name;
+        btn.innerHTML = renderLauncherContent();
+
+        var hd = $("cb-hd");
+        if (hd) {
+            hd.style.background = CFG.color;
+            var newHeader = renderHeaderLeft();
+            var close = hd.querySelector(".cb-x");
+            hd.innerHTML = newHeader;
+            if (close) hd.appendChild(close);
+        }
+
+        var input = $("cb-in");
+        if (input) {
+            input.placeholder = CFG.placeholder;
+            input.style.borderColor = "";
+        }
+
+        box.setAttribute("aria-label", "Chat avec " + CFG.name);
+
+        box.querySelectorAll(".cb-u").forEach(function(el){ el.style.background = CFG.color; });
+        box.querySelectorAll(".cb-b, .cb-tp").forEach(function(el){ el.style.background = CL; });
+        box.querySelectorAll(".cb-lf-ok").forEach(function(el){ el.style.background = CFG.color; });
+        var send = $("cb-send");
+        if (send) send.style.background = CFG.color;
+    }
 
     // ============================================================
     // MODULE: Session & Persistence
@@ -217,6 +272,7 @@
         "#cb-btn:hover{transform:scale(1.08);box-shadow:0 6px 24px ",CS,"}",
         "#cb-btn:focus-visible{outline:3px solid ",CFG.color,";outline-offset:3px}",
         "#cb-btn img{width:34px;height:34px;border-radius:50%;object-fit:cover}",
+        "#cb-btn .cb-ic{font-size:20px;line-height:1}",
         "#cb-btn.cb-hide{opacity:0;pointer-events:none;transform:scale(0.8)}",
         "#cb-box{width:380px;height:520px;position:fixed;bottom:92px;",posR?"right:20px;":"left:20px;","background:#fff;border-radius:18px;box-shadow:0 12px 48px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;z-index:99998;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
         "#cb-box.cb-open{display:flex;animation:cb-up .3s ease}",
@@ -224,6 +280,7 @@
         "#cb-hd{background:",CFG.color,";color:#fff;padding:16px 18px;font-weight:600;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:10px}",
         "#cb-hd-l{display:flex;align-items:center;gap:10px}",
         "#cb-hd-l img{width:30px;height:30px;border-radius:50%;object-fit:cover}",
+        "#cb-hd-l .cb-ic{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}",
         ".cb-x{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s}",
         ".cb-x:hover{background:rgba(255,255,255,.3)}",
         ".cb-x:focus-visible{outline:2px solid #fff;outline-offset:2px}",
@@ -280,8 +337,7 @@
     btn.setAttribute("aria-label", "Ouvrir le chat " + CFG.name);
     btn.setAttribute("role", "button");
     btn.title = "Ouvrir " + CFG.name;
-    if (CFG.logo) { btn.innerHTML = '<img src="'+escAttr(CFG.logo)+'" alt="'+escAttr(CFG.name)+'">'; }
-    else { btn.textContent = "AI"; }
+    btn.innerHTML = renderLauncherContent();
 
     var box = document.createElement("div");
     box.id = "cb-box";
@@ -289,9 +345,7 @@
     box.setAttribute("aria-label", "Chat avec " + CFG.name);
     box.setAttribute("aria-hidden", "true");
 
-    var hdLogo = CFG.logo
-        ? '<div id="cb-hd-l"><img src="'+escAttr(CFG.logo)+'" alt=""><span class="cb-dot"></span>'+escAttr(CFG.name)+'</div>'
-        : '<div id="cb-hd-l"><span class="cb-dot"></span>'+escAttr(CFG.name)+'</div>';
+    var hdLogo = renderHeaderLeft();
 
     box.innerHTML = [
         '<div id="cb-hd">',hdLogo,'<button class="cb-x" aria-label="Fermer le chat">\u2715</button></div>',
@@ -317,6 +371,8 @@
     var netBar  = $("cb-net");
     var isOpen = false, isSending = false, firstOpen = true;
     var displayedCount = 0;
+
+    applyRuntimeConfig();
 
     // ============================================================
     // MODULE: Network detection
