@@ -474,7 +474,7 @@ app.post("/api/admin/clients", (req, res) => {
         ...(config.chatbot || {}),
         name: sanitizeText(config.chatbot?.name || "Assistant", 80) || "Assistant",
         color: /^#[0-9a-fA-F]{6}$/.test(config.chatbot?.color || "") ? config.chatbot.color : "#4B6BFB",
-        icon: sanitizeText(config.chatbot?.icon || "", 8),
+        icon: sanitizeText(config.chatbot?.icon || "", 40),
         logo: sanitizeText(config.chatbot?.logo || "", 500),
         welcome: sanitizeText(config.chatbot?.welcome || "Bonjour ! Comment puis-je vous aider ?", 500),
         placeholder: sanitizeText(config.chatbot?.placeholder || "Posez votre question...", 120),

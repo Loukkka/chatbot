@@ -104,6 +104,31 @@
     function escAttr(s) { return String(s).replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
     function escText(s) { return String(s || "").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
+    var ICON_PATHS = {
+        chat: "M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 12.5z",
+        support: "M12 3a7 7 0 0 0-7 7v2.5A2.5 2.5 0 0 0 7.5 15H8a2 2 0 0 0 2-2v-1.5A1.5 1.5 0 0 0 8.5 10H7a5 5 0 1 1 10 0h-1.5A1.5 1.5 0 0 0 14 11.5V13a2 2 0 0 0 2 2h.5A2.5 2.5 0 0 0 19 12.5V10a7 7 0 0 0-7-7m-2 15h4",
+        briefcase: "M4 7.5A2.5 2.5 0 0 1 6.5 5H9V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1h2.5A2.5 2.5 0 0 1 20 7.5v7A2.5 2.5 0 0 1 17.5 17h-11A2.5 2.5 0 0 1 4 14.5z M11 5h2V4h-2z",
+        shield: "M12 3l7 3v5c0 4.3-2.6 8.1-7 10-4.4-1.9-7-5.7-7-10V6z M9.2 12.2l1.6 1.6 4-4",
+        spark: "M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z",
+        building: "M5 20V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V8h2.5A1.5 1.5 0 0 1 19 9.5V20 M8 8h2 M8 11h2 M8 14h2 M12 11h2 M12 14h2",
+        wrench: "M14.5 4.5a3.5 3.5 0 0 0-4.3 4.3l-5.7 5.7a1.8 1.8 0 0 0 2.5 2.5l5.7-5.7a3.5 3.5 0 0 0 4.3-4.3l-2 .8-2.3-2.3z",
+        message: "M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v6A2.5 2.5 0 0 1 17.5 15H11l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 12.5z"
+    };
+
+    function iconKey(raw) {
+        return String(raw || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").trim();
+    }
+
+    function renderIconMarkup() {
+        var raw = CFG.icon || "";
+        var key = iconKey(raw);
+        var path = ICON_PATHS[key] || "";
+        if (path) {
+            return '<span class="cb-ic cb-ic-svg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="'+path+'"></path></svg></span>';
+        }
+        return '<span class="cb-ic">'+escText(raw || "AI")+'</span>';
+    }
+
     var CL  = hexToRgba(CFG.color, 0.12);
     var CS  = hexToRgba(CFG.color, 0.35);
     var CH  = hexToRgba(CFG.color, 0.85);
@@ -116,14 +141,14 @@
 
     function renderLauncherContent() {
         if (CFG.logo) return '<img src="'+escAttr(CFG.logo)+'" alt="'+escAttr(CFG.name)+'">';
-        return escText(CFG.icon || "AI");
+        return renderIconMarkup();
     }
 
     function renderHeaderLeft() {
         var iconHtml = CFG.logo
             ? '<img src="'+escAttr(CFG.logo)+'" alt="">'
-            : '<span class="cb-ic">'+escText(CFG.icon || "AI")+'</span>';
-        return '<div id="cb-hd-l">'+iconHtml+'<span class="cb-dot"></span>'+escText(CFG.name)+'</div>';
+            : renderIconMarkup();
+        return '<div id="cb-hd-l">'+iconHtml+escText(CFG.name)+'</div>';
     }
 
     function applyRuntimeConfig() {
@@ -152,6 +177,14 @@
         }
 
         box.setAttribute("aria-label", "Chat avec " + CFG.name);
+
+        // If server config arrives after initial render, refresh the first welcome bubble.
+        if (msgs && history.length === 0 && msgs.children.length === 1) {
+            var first = msgs.firstChild;
+            if (first && first.classList && first.classList.contains("cb-b")) {
+                first.textContent = CFG.welcome;
+            }
+        }
 
         box.querySelectorAll(".cb-u").forEach(function(el){ el.style.background = CFG.color; });
         box.querySelectorAll(".cb-b, .cb-tp").forEach(function(el){ el.style.background = CL; });
@@ -272,7 +305,9 @@
         "#cb-btn:hover{transform:scale(1.08);box-shadow:0 6px 24px ",CS,"}",
         "#cb-btn:focus-visible{outline:3px solid ",CFG.color,";outline-offset:3px}",
         "#cb-btn img{width:34px;height:34px;border-radius:50%;object-fit:cover}",
-        "#cb-btn .cb-ic{font-size:20px;line-height:1}",
+        "#cb-btn .cb-ic{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1;background:rgba(255,255,255,.2)}",
+        "#cb-btn .cb-ic.cb-ic-svg{background:rgba(255,255,255,.16)}",
+        "#cb-btn .cb-ic svg{width:18px;height:18px}",
         "#cb-btn.cb-hide{opacity:0;pointer-events:none;transform:scale(0.8)}",
         "#cb-box{width:380px;height:520px;position:fixed;bottom:92px;",posR?"right:20px;":"left:20px;","background:#fff;border-radius:18px;box-shadow:0 12px 48px rgba(0,0,0,.18);display:none;flex-direction:column;overflow:hidden;z-index:99998;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
         "#cb-box.cb-open{display:flex;animation:cb-up .3s ease}",
@@ -280,12 +315,12 @@
         "#cb-hd{background:",CFG.color,";color:#fff;padding:16px 18px;font-weight:600;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:10px}",
         "#cb-hd-l{display:flex;align-items:center;gap:10px}",
         "#cb-hd-l img{width:30px;height:30px;border-radius:50%;object-fit:cover}",
-        "#cb-hd-l .cb-ic{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1}",
+        "#cb-hd-l .cb-ic{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;flex-shrink:0}",
+        "#cb-hd-l .cb-ic.cb-ic-svg{background:rgba(255,255,255,.16)}",
+        "#cb-hd-l .cb-ic svg{width:16px;height:16px}",
         ".cb-x{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s}",
         ".cb-x:hover{background:rgba(255,255,255,.3)}",
         ".cb-x:focus-visible{outline:2px solid #fff;outline-offset:2px}",
-        ".cb-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:4px;animation:cb-pulse 2s infinite}",
-        "@keyframes cb-pulse{0%,100%{opacity:1}50%{opacity:.4}}",
         "#cb-msgs{flex:1;padding:14px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:8px;background:#fafbff;scroll-behavior:smooth;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
         ".cb-m{padding:10px 14px;border-radius:16px;max-width:84%;line-height:1.55;word-wrap:break-word;white-space:pre-wrap;font-size:13.5px;letter-spacing:0.01em;font-family:'Inter','Helvetica Neue',Arial,sans-serif !important}",
         ".cb-b{background:",CL,";align-self:flex-start;border-bottom-left-radius:4px;color:#1e2a5a}",
@@ -431,6 +466,8 @@
         var el = document.createElement("div");
         el.classList.add("cb-m", "cb-" + type);
         el.textContent = type === "b" ? cleanMarkdown(text) : text;
+        if (type === "u") el.style.background = CFG.color;
+        if (type === "b") el.style.background = CL;
         if (type === "b") el.setAttribute("aria-label", CFG.name + " dit");
         if (type === "u") el.setAttribute("aria-label", "Vous dites");
         msgs.appendChild(el);
@@ -447,6 +484,7 @@
         var el = document.createElement("div");
         el.classList.add("cb-tp");
         el.id = "cb-tp";
+        el.style.background = CL;
         el.setAttribute("aria-label", CFG.name + " est en train d'ecrire");
         el.innerHTML = "<span></span><span></span><span></span>";
         msgs.appendChild(el);
