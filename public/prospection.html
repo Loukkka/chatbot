@@ -716,7 +716,11 @@ function pollSendingStatus() {
                 setTimeout(function() {
                     $("sending-bar").classList.remove("active");
                 }, 3000);
-                toast("Envoi terminé ! " + data.sent + " envoyés, " + data.errors + " erreurs.", data.errors > 0 ? "error" : "success");
+                var msg = "Envoi terminé ! " + data.sent + " envoyés, " + data.errors + " erreurs.";
+                if (data.errors > 0 && data.lastError) {
+                    msg += " Dernière erreur: " + data.lastError;
+                }
+                toast(msg, data.errors > 0 ? "error" : "success");
                 loadProspects();
                 loadHistory();
             }

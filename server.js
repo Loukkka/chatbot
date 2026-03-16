@@ -840,53 +840,75 @@ async function sendEmail(to, subject, html) {
     const fromName = process.env.SMTP_FROM_NAME || "Service Chatbot IA";
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@example.com";
 
+    const sendErrors = [];
+
     // Méthode 1 : Gmail API (HTTPS — fonctionne partout, envoie depuis votre vraie adresse Gmail)
     if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_REFRESH_TOKEN) {
-        console.log("📧 Envoi via Gmail API à", to);
-        return await sendViaGmailAPI(to, subject, html, fromName, fromEmail);
+        try {
+            console.log("📧 Envoi via Gmail API à", to);
+            return await sendViaGmailAPI(to, subject, html, fromName, fromEmail);
+        } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            sendErrors.push(`Gmail API: ${msg}`);
+            console.warn("⚠️ Gmail API indisponible, tentative de fallback:", msg);
+        }
     }
 
-    // Méthode 2 : SMTP direct (fonctionne en local, bloqué sur Render)
+    // Méthode 2 : SMTP direct (fonctionne en local, parfois bloqué sur Render)
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-        console.log("📧 Envoi via SMTP à", to);
-        const nodemailer = require("nodemailer");
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || "smtp.gmail.com",
-            port: parseInt(process.env.SMTP_PORT) || 587,
-            secure: false,
-            auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-            family: 4
-        });
-        return await transporter.sendMail({
-            from: `"${fromName}" <${fromEmail}>`,
-            to: to,
-            subject: subject,
-            html: html
-        });
+        try {
+            console.log("📧 Envoi via SMTP à", to);
+            const nodemailer = require("nodemailer");
+            const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || "smtp.gmail.com",
+                port: parseInt(process.env.SMTP_PORT) || 587,
+                secure: false,
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+                family: 4
+            });
+            return await transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to: to,
+                subject: subject,
+                html: html
+            });
+        } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            sendErrors.push(`SMTP: ${msg}`);
+            console.warn("⚠️ SMTP indisponible, tentative de fallback:", msg);
+        }
     }
 
     // Méthode 3 : Brevo API (fallback)
     if (process.env.BREVO_API_KEY) {
-        console.log("📧 Envoi via Brevo API à", to);
-        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "api-key": process.env.BREVO_API_KEY
-            },
-            body: JSON.stringify({
-                sender: { name: fromName, email: fromEmail },
-                to: [{ email: to }],
-                subject: subject,
-                htmlContent: html
-            })
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || JSON.stringify(data));
-        return data;
+        try {
+            console.log("📧 Envoi via Brevo API à", to);
+            const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": process.env.BREVO_API_KEY
+                },
+                body: JSON.stringify({
+                    sender: { name: fromName, email: fromEmail },
+                    to: [{ email: to }],
+                    subject: subject,
+                    htmlContent: html
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || JSON.stringify(data));
+            return data;
+        } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            sendErrors.push(`Brevo API: ${msg}`);
+        }
     }
 
-    throw new Error("Aucune méthode d'envoi configurée. Ajoutez GMAIL_CLIENT_ID/GMAIL_REFRESH_TOKEN, ou SMTP_USER/SMTP_PASS.");
+    if (!sendErrors.length) {
+        throw new Error("Aucune méthode d'envoi configurée. Ajoutez GMAIL_CLIENT_ID/GMAIL_REFRESH_TOKEN, SMTP_USER/SMTP_PASS, ou BREVO_API_KEY.");
+    }
+    throw new Error(`Toutes les méthodes d'envoi ont échoué: ${sendErrors.join(" | ")}`);
 }
 
 function buildProspectionEmailHTML(prospect) {
@@ -942,14 +964,18 @@ function buildProspectionEmailHTML(prospect) {
 // --- Sending queue ---
 let sendingInProgress = false;
 let sendingQueue = [];
-let sendingStats = { total: 0, sent: 0, errors: 0, current: "" };
+let sendingStats = { total: 0, sent: 0, errors: 0, current: "", lastError: "" };
 
 async function processSendingQueue() {
     if (sendingInProgress) return;
     sendingInProgress = true;
     const DELAY_MS = parseInt(process.env.EMAIL_DELAY_MS) || 30000;
     console.log(`📧 Démarrage envoi de ${sendingQueue.length} email(s), délai: ${DELAY_MS}ms`);
-    console.log(`📧 Méthode: ${process.env.BREVO_API_KEY ? "Brevo API" : "SMTP"}`);
+    const methods = [];
+    if (process.env.GMAIL_CLIENT_ID && process.env.GMAIL_REFRESH_TOKEN) methods.push("Gmail API");
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) methods.push("SMTP");
+    if (process.env.BREVO_API_KEY) methods.push("Brevo API");
+    console.log(`📧 Méthodes configurées: ${methods.length ? methods.join(" -> ") : "aucune"}`);
     const history = loadEmailHistory();
     const unsubscribed = loadUnsubscribed().map(u => u.email.toLowerCase());
 
@@ -988,6 +1014,7 @@ async function processSendingQueue() {
             console.error(`❌ Erreur envoi à ${prospect.email}:`, err.message);
             history.push({ id: Date.now(), prospectId: prospect.id, companyName: prospect.companyName, email: prospect.email, status: "error", error: err.message, sentAt: new Date().toISOString() });
             sendingStats.errors++;
+            sendingStats.lastError = err && err.message ? err.message : String(err);
             const prospects = loadProspects();
             const p = prospects.find(pp => pp.id === prospect.id);
             if (p) { p.status = "error"; p.errorMessage = err.message; }
@@ -1202,7 +1229,7 @@ app.post("/api/admin/prospects/send", (req, res) => {
     saveProspects(prospects);
 
     sendingQueue = toSend;
-    sendingStats = { total: toSend.length, sent: 0, errors: 0, current: "" };
+    sendingStats = { total: toSend.length, sent: 0, errors: 0, current: "", lastError: "" };
     processSendingQueue();
     res.json({ ok: true, queued: toSend.length });
 });
